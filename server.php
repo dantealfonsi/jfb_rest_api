@@ -182,6 +182,20 @@ function returnRegisterList($student_id){
 	return $obj;
 }
 
+
+function returnTeacherData($teacher_id){
+	$obj = array();
+	$consulta = "SELECT * from teacher where person_id = ".$teacher_id."";		
+	$resultado = mysqli_query($GLOBALS['conn'], $consulta);
+
+		while($row = mysqli_fetch_assoc($resultado)) {
+			$obj=array('id'=>$row['id'],'person_id'=>$row['person_id'],'total_work_charge'=> $row['total_work_charge'],'qualification'=>$row['qualification'],'degree'=>$row['degree'],'second_degree'=>$row['second_degree'],'second_qualification'=>$row['second_qualification'],'hiring'=>$row['hiring'],'dismissal'=>$row['dismissal']);
+		}   			
+	
+	return $obj;
+}
+
+
 function returnNextSection($_year,$period){
 	$year = ['primero', 'segundo', 'tercero', 'cuarto', 'quinto'];
 	$section = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'];
@@ -410,7 +424,7 @@ if ($method == "POST") {
 			$second_qualification = mysqli_real_escape_string($conn, $data['teacher']['second_qualification']);
 			$second_degree = mysqli_real_escape_string($conn, $data['teacher']['second_degree']);
 			$total_work_charge = mysqli_real_escape_string($conn, $data['teacher']['total_work_charge']);
-			$hiring = date("d-m-Y");
+			$hiring = date("Y-m-d");
 
 			function insertPerson($conn, $data) {
 				// Escapa los valores para evitar inyección de SQL
@@ -457,6 +471,36 @@ if ($method == "POST") {
 			echo json_encode($response);
 		}
 
+
+		if (isset($data['editTeacher'])) {
+
+			$message = 'Editado';
+
+				// Escapa los valores para evitar inyección de SQL
+				$id = mysqli_real_escape_string($conn, $data['teacher']['id']);
+				$nationality = mysqli_real_escape_string($conn, $data['teacher']['nationality']);
+				$cedula = mysqli_real_escape_string($conn, $data['teacher']['cedula']);
+				$name = mysqli_real_escape_string($conn, strtolower($data['teacher']['name']));
+				$second_name = mysqli_real_escape_string($conn, strtolower($data['teacher']['second_name']));
+				$last_name = mysqli_real_escape_string($conn, strtolower($data['teacher']['last_name']));
+				$second_last_name = mysqli_real_escape_string($conn, strtolower($data['teacher']['second_last_name']));
+				$email = mysqli_real_escape_string($conn, strtolower($data['teacher']['email']));
+				$phone = mysqli_real_escape_string($conn, $data['teacher']['phone']);
+				$address = mysqli_real_escape_string($conn, strtolower($data['teacher']['address']));
+				$gender = mysqli_real_escape_string($conn, $data['teacher']['gender']);
+				$birthday = mysqli_real_escape_string($conn, $data['teacher']['birthday']);
+				// ...otros campos    
+				$query = "UPDATE person SET cedula='$cedula',nationality='$nationality',name='$name',second_name='$second_name',last_name='$last_name',second_last_name='$second_last_name',email='$email',phone='$phone',address='$address',gender='$gender',birthday='$birthday' WHERE id=$id";
+				$result = mysqli_query($conn, $query);
+
+				if (!$result) {
+					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+					$message = 'Error';
+				}
+
+			$response = array('message' => $message);
+			echo json_encode($response);
+		}
 
 
 		if (isset($data['addSection'])) {
@@ -726,6 +770,11 @@ if ($method == "GET") {
 		echo password_hash($_GET['getpass'], PASSWORD_BCRYPT);
 	}
 
+	if(isset($_GET['prueba'])){
+
+		echo date("YYYY-MM-DD"); ;
+	}
+
 	if(isset($_GET['current_period'])){
 		
 		$time_period="";
@@ -804,11 +853,12 @@ if ($method == "GET") {
 		$resultado = mysqli_query($conn, $consulta);
 		if ($resultado && mysqli_num_rows($resultado) > 0) {
 			while($row = mysqli_fetch_assoc($resultado)) {      
-				$obj[]=array('id'=>$row['id'],'phone'=>$row['phone'],'cedula'=>$row['cedula'],'nationality'=>$row['nationality'],'name'=>$row['name'],'second_name'=>$row['second_name'],'last_name'=>$row['last_name'],'second_last_name'=>$row['second_last_name'],'email'=>$row['email'],'birthday'=>$row['birthday'],'gender'=>$row['gender'],'address'=>$row['address']);
+				$obj[]=array('id'=>$row['id'],'phone'=>$row['phone'],'cedula'=>$row['cedula'],'nationality'=>$row['nationality'],'name'=>$row['name'],'second_name'=>$row['second_name'],'last_name'=>$row['last_name'],'second_last_name'=>$row['second_last_name'],'email'=>$row['email'],'birthday'=>$row['birthday'],'gender'=>$row['gender'],'address'=>$row['address'], 'teacherData' => returnTeacherData($row['id']));
 			}   
 		}
 		echo json_encode($obj); 
-	}	
+	}
+	
 	
 	if(isset($_GET['parent_list'])){
 		$obj = array();
