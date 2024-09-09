@@ -343,6 +343,25 @@ if ($method == "POST") {
 			echo json_encode($response);
 		}
 
+
+		if(isset($data['dismiss'])){ /* Actualiza segun un campo con su valor y  la tabla requerida*/
+
+			$id = mysqli_real_escape_string($conn, $data['id']);
+			$dismiss = date("Y-m-d");
+
+			
+            $query = "UPDATE teacher SET dismissal = '$dismiss' WHERE person_id = $id";
+            $result = mysqli_query($conn, $query);
+            
+            if (!$result) {
+                // Error en la consulta
+                throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+            }
+			
+			$response = array("message" => "ok");
+			echo json_encode($response);
+		}
+
 				
 		if (isset($data['inscribe'])) {
 			$message = 'Insert is Null in Inscribe';
@@ -490,10 +509,21 @@ if ($method == "POST") {
 				$gender = mysqli_real_escape_string($conn, $data['teacher']['gender']);
 				$birthday = mysqli_real_escape_string($conn, $data['teacher']['birthday']);
 				// ...otros campos    
+				$total_work_charge = mysqli_real_escape_string($conn, strtolower($data['teacher']['total_work_charge']));
+				$qualification = mysqli_real_escape_string($conn, strtolower($data['teacher']['qualification']));
+				$degree = mysqli_real_escape_string($conn, strtolower($data['teacher']['degree']));
+				$second_qualification = mysqli_real_escape_string($conn, strtolower($data['teacher']['second_qualification']));
+				$second_degree = mysqli_real_escape_string($conn, strtolower($data['teacher']['second_degree']));
+
+
 				$query = "UPDATE person SET cedula='$cedula',nationality='$nationality',name='$name',second_name='$second_name',last_name='$last_name',second_last_name='$second_last_name',email='$email',phone='$phone',address='$address',gender='$gender',birthday='$birthday' WHERE id=$id";
 				$result = mysqli_query($conn, $query);
 
-				if (!$result) {
+
+				$second_query = "UPDATE teacher SET total_work_charge=$total_work_charge,qualification='$qualification',degree='$degree',second_qualification='$second_qualification',second_degree='$second_degree' WHERE person_id=$id";
+				$second_result = mysqli_query($conn, $second_query);
+
+				if (!$result || !$second_result) {
 					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
 					$message = 'Error';
 				}
@@ -849,7 +879,7 @@ if ($method == "GET") {
 		person.birthday,
 		person.gender,
 		person.address 
-		FROM person INNER JOIN teacher where teacher.person_id = person.id";
+		FROM person INNER JOIN teacher where teacher.person_id = person.id AND dismissal = 0000-00-00";
 		$resultado = mysqli_query($conn, $consulta);
 		if ($resultado && mysqli_num_rows($resultado) > 0) {
 			while($row = mysqli_fetch_assoc($resultado)) {      
