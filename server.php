@@ -972,7 +972,67 @@ if ($method == "GET") {
 		$period = $_GET['period']; //en el link get debe venir el periodo		
 		echo json_encode(returnListSection($period)); 
 	}
+
+
+
+
+
+
+	if (isset($_GET['this_section_list'])) { 
+		$section_id = $_GET['id']; 
+		$consulta = "SELECT teacher_id, year, section_name FROM section WHERE id={$section_id}";
+		$resultado = mysqli_query($conn, $consulta);
 	
+		$obj = array(); // Inicializa el array fuera del bucle
+	
+		while ($row = mysqli_fetch_assoc($resultado)) {
+			// Inicializa $section_name con el valor original
+			$year = $row['year'];
+	
+			// Mapea los nombres de las secciones a sus valores numéricos
+		switch ($row['year']) {
+			case 'primero':
+				$year = '1er';
+				break;
+			case 'segundo':
+				$year = '2do';
+				break;	
+			case 'tercero':
+				$year = '3er';
+				break;	
+			case 'cuarto':
+				$year = '4to';
+				break;
+			case 'quinto':
+				$year = '5to';
+				break;			
+			default:
+				$year = $row['year'];
+				break;
+		}
+	
+			$obj = array(
+				'teacher_id' => $row['teacher_id'],
+				'section_name' => $row['section_name'],
+				'year' => $year
+			);
+		}
+	
+		echo json_encode($obj); 
+	}
+	
+
+
+
+
+
+
+
+
+
+
+
+
 	if(isset($_GET['registration_list'])){
 		//en el link get debe venir el periodo		
 		echo json_encode(returnRegisterList()); 
@@ -994,6 +1054,31 @@ if ($method == "GET") {
 			}   
 		}
 		echo json_encode($obj); 
+	}
+
+
+	
+	if(isset($_GET['routine_list'])){
+		$section_id = $_GET['id'];
+		$obj = array();
+		$consulta = "SELECT * FROM work_charge where section_id = '$section_id'";
+		$resultado = mysqli_query($conn, $consulta);
+		while($row = mysqli_fetch_assoc($resultado)) {
+			$obj[] = array(
+				'id' => $row['id'],
+				'teacher_id' => $row['teacher_id'],
+				'subject_id' => $row['subject_id'],
+				'section_id' => $row['section_id'],
+				'day' => $row['day'],
+				'start_hour' => $row['start_hour'],
+				'end_hour' => $row['end_hour']
+			);
+		}
+		echo json_encode($obj); 
+		// Agrega esto para depurar
+		if (json_last_error() !== JSON_ERROR_NONE) {
+			echo 'Error en la codificación JSON: ' . json_last_error_msg();
+		}
 	}
 
 	if(isset($_GET['stadistic'])){
