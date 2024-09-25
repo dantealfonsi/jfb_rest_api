@@ -582,6 +582,115 @@ if ($method == "POST") {
 			echo json_encode($response);
 		}
 
+
+		if (isset($data['addSubjectToRoutine'])) {
+			$message = '';
+			$icon = '';
+		
+			// Escapa los valores para evitar inyección de SQL
+			$day = mysqli_real_escape_string($conn, strtolower($data['day']));
+			$section_id = mysqli_real_escape_string($conn, strtolower($data['section']));
+			$subject_id = mysqli_real_escape_string($conn, strtolower($data['subject']));
+			$start_hour = mysqli_real_escape_string($conn, strtolower($data['start']));
+			$end_hour = mysqli_real_escape_string($conn, strtolower($data['end']));
+			// ...otros campos
+		
+			// Verifica si ya existe una entrada con los mismos día, sección, hora de inicio y hora de cierre
+			$checkQuery = "SELECT * FROM work_charge WHERE day=$day AND section_id=$section_id AND start_hour='$start_hour' AND end_hour='$end_hour'";
+			$checkResult = mysqli_query($conn, $checkQuery);
+		
+			if (mysqli_num_rows($checkResult) > 0) {
+				// Si existe, actualiza la materia
+				$updateQuery = "UPDATE work_charge SET subject_id=$subject_id WHERE day=$day AND section_id=$section_id AND start_hour='$start_hour' AND end_hour='$end_hour'";
+				$updateResult = mysqli_query($conn, $updateQuery);
+		
+				if (!$updateResult) {
+					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+					$message = 'Error al actualizar la materia';
+					$icon = 'error';
+				} else {
+					$message = 'Materia actualizada con éxito';
+					$icon = 'success';
+				}
+			} else {
+				// Si no existe, inserta una nueva entrada
+				$insertQuery = "INSERT INTO work_charge (day, section_id, subject_id, start_hour, end_hour) VALUES ($day, $section_id, $subject_id, '$start_hour', '$end_hour')";
+				$insertResult = mysqli_query($conn, $insertQuery);
+		
+				if (!$insertResult) {
+					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+					$message = 'Error al añadir la materia';
+					$icon = 'error';
+				} else {
+					$message = 'Materia añadida con éxito';
+					$icon = 'success';
+				}
+			}
+		
+			$response = array('message' => $message, 'icon' => $icon);
+			echo json_encode($response);
+		}
+
+
+		if (isset($data['addTeacherToRoutine'])) {
+			$message = '';
+			$icon = '';
+		
+			// Escapa los valores para evitar inyección de SQL
+			$day = mysqli_real_escape_string($conn, strtolower($data['day']));
+			$section_id = mysqli_real_escape_string($conn, strtolower($data['section']));
+			$teacher_id = mysqli_real_escape_string($conn, strtolower($data['teacher']['id']));
+			$start_hour = mysqli_real_escape_string($conn, strtolower($data['start']));
+			$end_hour = mysqli_real_escape_string($conn, strtolower($data['end']));
+		
+			// Verifica si el profesor ya tiene una entrada con la misma hora de inicio y fin
+			$teacherCheckQuery = "SELECT * FROM work_charge WHERE teacher_id='$teacher_id' AND start_hour='$start_hour' AND end_hour='$end_hour'";
+			$teacherCheckResult = mysqli_query($conn, $teacherCheckQuery);
+		
+			if (mysqli_num_rows($teacherCheckResult) == 0) {
+				$checkQuery = "SELECT * FROM work_charge WHERE day='$day' AND section_id='$section_id' AND start_hour='$start_hour' AND end_hour='$end_hour'";
+				$checkResult = mysqli_query($conn, $checkQuery);
+		
+				if (mysqli_num_rows($checkResult) > 0) {
+					// Si existe, actualiza el teacher_id
+					$updateQuery = "UPDATE work_charge SET teacher_id='$teacher_id' WHERE day='$day' AND section_id='$section_id' AND start_hour='$start_hour' AND end_hour='$end_hour'";
+					$updateResult = mysqli_query($conn, $updateQuery);
+		
+					if (!$updateResult) {
+						throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+						$title = 'No se pudo añadir al profesor';
+						$message = 'Error al actualizar el profesor';
+						$icon = 'error';
+					} else {
+						$title = 'Profesor añadido';
+						$message = 'Profesor actualizado con éxito';
+						$icon = 'success';
+					}
+				} else {
+					// Si no existe, inserta una nueva entrada
+					$insertQuery = "INSERT INTO work_charge (day, section_id, teacher_id, start_hour, end_hour) VALUES ('$day', '$section_id', '$teacher_id', '$start_hour', '$end_hour')";
+					$insertResult = mysqli_query($conn, $insertQuery);
+		
+					if (!$insertResult) {
+						throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+						$message = 'Error al añadir el profesor';
+						$icon = 'error';
+					} else {
+						$message = 'Profesor añadido con éxito';
+						$icon = 'success';
+					}
+				}
+			} else {
+				$title = 'No se pudo añadir al profesor';
+				$message = 'El profesor ya tiene una entrada con la misma hora de inicio y fin';
+				$icon = 'warning';
+			}
+		
+			$response = array('message' => $message, 'icon' => $icon, 'title' => $title);
+			echo json_encode($response);
+		}
+
+
 		if (isset($data['addSubject'])) {
 
 			$subjectExist = false;
