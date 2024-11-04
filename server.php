@@ -90,6 +90,15 @@ function returnIdParent($cedula) {
     }
 }
 
+function row_sqlconector($consulta) {
+	$row = array();
+	$resultado = mysqli_query($GLOBALS['conn'], $consulta);
+	if($resultado){
+		$row = mysqli_fetch_assoc($resultado);
+	}
+	return $row;
+  }
+
 function returnDatPerson($id) {
 	$obj = array();
     $resultado = mysqli_query($GLOBALS['conn'], "SELECT * FROM person WHERE id = $id");
@@ -157,6 +166,17 @@ function returnDatSection($id) {
     }
 	return $obj;	
 }
+
+function returnDatSubject($id) {
+	$obj = array();
+    $resultado = mysqli_query($GLOBALS['conn'], "SELECT * FROM subject WHERE id = $id");
+    if ($resultado && mysqli_num_rows($resultado) > 0) {
+        $row = mysqli_fetch_assoc($resultado);
+		$obj=array('id' => $row['id'],'name'=>$row['name']);
+    }
+	return $obj;	
+}
+
 
 
 function returnDatUser($id) {
@@ -416,7 +436,7 @@ if ($method == "POST") {
 			}
 
 			if(!ifStudentExistRegistration($endIdStudent)){
-				$QinserRegistration = "INSERT INTO registration (student_id,parent_id,student_rel,section_id,period,year) VALUES ($endIdStudent, $endIdParent,'".$data['parent']['student_rel']."',".$data['other']['section'].",'".$data['period']."','".$data['other']['year']."')";
+				$QinserRegistration = "INSERT INTO registration (student_id,parent_id,student_rel,section_id,period,year) VALUES ($endIdStudent, $endIdParent,'".$data['parent']['student_rel']."',".$data['section_id'].",'".$data['period']."','".$data['section_year']."')";
 				$result_student = mysqli_query($conn, $QinserRegistration);	
 				$message = 'Usuario Inscrito con exito';
 				$icon = 'success';
@@ -635,40 +655,46 @@ if ($method == "POST") {
 		if (isset($data['addTeacherToRoutine'])) {
 			$message = '';
 			$icon = '';
-		
+			$title= '';
 			// Escapa los valores para evitar inyección de SQL
 			$day = mysqli_real_escape_string($conn, strtolower($data['day']));
 			$section_id = mysqli_real_escape_string($conn, strtolower($data['section']));
-			$teacher_id = mysqli_real_escape_string($conn, strtolower($data['teacher']['id']));
+			$teacher_id = mysqli_real_escape_string($conn, strtolower($data['teacher']));
 			$start_hour = mysqli_real_escape_string($conn, strtolower($data['start']));
 			$end_hour = mysqli_real_escape_string($conn, strtolower($data['end']));
 		
 			// Verifica si el profesor ya tiene una entrada con la misma hora de inicio y fin
-			$teacherCheckQuery = "SELECT * FROM work_charge WHERE teacher_id='$teacher_id' AND start_hour='$start_hour' AND end_hour='$end_hour'";
+			$teacherCheckQuery = "SELECT * FROM work_charge WHERE teacher_id=$teacher_id AND start_hour='$start_hour' AND end_hour='$end_hour' AND day=$day";
 			$teacherCheckResult = mysqli_query($conn, $teacherCheckQuery);
 		
 			if (mysqli_num_rows($teacherCheckResult) == 0) {
-				$checkQuery = "SELECT * FROM work_charge WHERE day='$day' AND section_id='$section_id' AND start_hour='$start_hour' AND end_hour='$end_hour'";
+				
+				$checkQuery = "SELECT * FROM work_charge WHERE day=$day AND section_id=$section_id AND start_hour='$start_hour' AND end_hour='$end_hour'";
 				$checkResult = mysqli_query($conn, $checkQuery);
-		
+				
 				if (mysqli_num_rows($checkResult) > 0) {
 					// Si existe, actualiza el teacher_id
-					$updateQuery = "UPDATE work_charge SET teacher_id='$teacher_id' WHERE day='$day' AND section_id='$section_id' AND start_hour='$start_hour' AND end_hour='$end_hour'";
+					$updateQuery = "UPDATE work_charge SET teacher_id=$teacher_id WHERE day=$day AND section_id=$section_id AND start_hour='$start_hour' AND end_hour='$end_hour'";
 					$updateResult = mysqli_query($conn, $updateQuery);
-		
+					
 					if (!$updateResult) {
+
 						throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
 						$title = 'No se pudo añadir al profesor';
 						$message = 'Error al actualizar el profesor';
 						$icon = 'error';
+
 					} else {
+		
 						$title = 'Profesor añadido';
 						$message = 'Profesor actualizado con éxito';
 						$icon = 'success';
+			
 					}
+
 				} else {
 					// Si no existe, inserta una nueva entrada
-					$insertQuery = "INSERT INTO work_charge (day, section_id, teacher_id, start_hour, end_hour) VALUES ('$day', '$section_id', '$teacher_id', '$start_hour', '$end_hour')";
+					$insertQuery = "INSERT INTO work_charge (day, section_id, teacher_id, start_hour, end_hour) VALUES ($day, $section_id, $teacher_id, '$start_hour', '$end_hour')";
 					$insertResult = mysqli_query($conn, $insertQuery);
 		
 					if (!$insertResult) {
@@ -682,7 +708,7 @@ if ($method == "POST") {
 				}
 			} else {
 				$title = 'No se pudo añadir al profesor';
-				$message = 'El profesor ya tiene una entrada con la misma hora de inicio y fin';
+				$message = 'El profesor ya esta ocupado por esta hora';
 				$icon = 'warning';
 			}
 		
@@ -1150,6 +1176,7 @@ if ($method == "GET") {
 	if(isset($_GET['next_section'])){
 		echo json_encode(returnNextSection($_GET['year'],$_GET['period']));
 	}
+	
 
 	if(isset($_GET['sorted_section_list'])){
 		$year = $_GET['year'];
@@ -1160,6 +1187,20 @@ if ($method == "GET") {
 		if ($resultado && mysqli_num_rows($resultado) > 0) {
 			while($row = mysqli_fetch_assoc($resultado)) {
 				$obj[]=array('id'=>$row['id'],'year'=>$row['year'],'section_name'=>$row['section_name'],'teacher_id'=>returnDatPerson($row['teacher_id']),'quota'=>$row['quota'],'period'=>$row['period']);
+			}   
+		}
+		echo json_encode($obj); 
+	}
+
+	
+	if(isset($_GET['period_list'])){
+
+		$obj = array();
+		$consulta = "SELECT name FROM period order by name DESC";
+		$resultado = mysqli_query($conn, $consulta);
+		if ($resultado && mysqli_num_rows($resultado) > 0) {
+			while($row = mysqli_fetch_assoc($resultado)) {
+				$obj[]=array('period'=>$row['name']);
 			}   
 		}
 		echo json_encode($obj); 
@@ -1181,6 +1222,29 @@ if ($method == "GET") {
 				'day' => $row['day'],
 				'start_hour' => $row['start_hour'],
 				'end_hour' => $row['end_hour']
+			);
+		}
+		echo json_encode($obj); 
+		// Agrega esto para depurar
+		if (json_last_error() !== JSON_ERROR_NONE) {
+			echo 'Error en la codificación JSON: ' . json_last_error_msg();
+		}
+	}
+
+	if(isset($_GET['routine_list_teacher'])){
+
+		$period = currentPeriod()['current_period'];
+		$teacher_id = $_GET['teacher_id'];
+		$obj = array();
+		$consulta = "SELECT * FROM work_charge where teacher_id = '$teacher_id'";
+		$resultado = mysqli_query($conn, $consulta);
+		while($row = mysqli_fetch_assoc($resultado)) {
+			$obj[] = array(
+				'day' => $row['day'],
+				'start_hour' => $row['start_hour'],
+				'end_hour' => $row['end_hour'],
+				'subject' => row_sqlconector("select name from subject where id={$row['subject_id']} and isDeleted=0")['name'],
+				'section' => row_sqlconector("select CONCAT(year, ' ', section_name) AS seccion from section where id={$row['section_id']} and period='$period'")['seccion']
 			);
 		}
 		echo json_encode($obj); 
@@ -1228,7 +1292,129 @@ if ($method == "GET") {
 		echo json_encode($obj); 
 	}
 
+
+	if(isset($_GET['reportStatistics'])){
+
+		$period = $_GET['period'];
+	
+		$obj = array(
+			"period" => $period,
+			"studentGenders" => _studentGender($period,$conn),
+			"teacherGenders" => _teacherGender($period,$conn),
+			"studentByPeriod" => _studentByPeriod($period,$conn),
+		);
+
+		echo json_encode($obj); 
+	}
+
+
+
+
 }
+
+
+
+
+
+function _studentGender($period,$conn){
+
+	$studentGenders = [];
+
+	if ($period === 'all') {
+		$genderQuery = "SELECT p.gender, COUNT(*) AS count FROM student s JOIN person p ON s.person_id = p.id GROUP BY p.gender;";
+	} else{
+		$genderQuery = "SELECT p.gender, COUNT(*) AS count FROM student s JOIN person p ON s.person_id = p.id JOIN registration r ON s.person_id = r.student_id WHERE r.period = '{$period}' GROUP BY p.gender;";
+
+	}
+	$result = mysqli_query($conn, $genderQuery);
+	if ($result) {			
+		while($row = mysqli_fetch_assoc($result)) {
+			if(isset($row['gender'])){
+				$studentGenders[] = array(
+					'gender' => $row['gender'],
+					'count' => $row['count'],
+				);
+			}
+		}
+	}
+
+	if(empty($studentGenders)){
+		$studentGenders = [
+			array('gender' => 'femenino', 'count' => '0'),
+			array('gender' => 'masculino', 'count' => '0')
+		];	
+	}
+
+	return $studentGenders;
+
+}
+
+
+function _teacherGender($period,$conn){
+
+	$teacherGenders = [];
+
+	$teacherGenderQuery = "SELECT p.gender, COUNT(t.id) AS total_teachers FROM Teacher t JOIN Person p ON t.person_id = p.id GROUP BY p.gender;";
+
+	
+	$result = mysqli_query($conn, $teacherGenderQuery);
+	if ($result) {			
+		while($row = mysqli_fetch_assoc($result)) {
+			if(isset($row['gender'])){
+				$teacherGenders[] = array(
+					'gender' => $row['gender'],
+					'total_teachers' => $row['total_teachers'],
+				);
+			}
+		}
+	}
+
+	if(empty($teacherGenders)){
+		$teacherGenders = [
+			array('gender' => 'femenino', 'total_teachers' => '0'),
+			array('gender' => 'masculino', 'total_teachers' => '0')
+		];	
+	}
+
+	return $teacherGenders;
+
+}
+
+
+function _studentByPeriod($period,$conn){
+
+	$studentsByPeriod = [];
+
+
+	if ($period === 'all') {
+		$studentsByPeriodQuery = "SELECT period, COUNT(*) AS total_entries FROM registration GROUP BY period;";
+	} else{
+		$studentsByPeriodQuery = "SELECT period, COUNT(*) AS total_entries FROM registration where period = '{$period}' GROUP BY period;";
+	}
+
+
+	$result = mysqli_query($conn, $studentsByPeriodQuery);
+	if ($result) {			
+		while($row = mysqli_fetch_assoc($result)) {
+				$studentsByPeriod[] = array(
+					'period' => $row['period'],
+					'total_entries' => $row['total_entries'],
+				);
+		}
+	}
+
+	if(empty($studentsByPeriod)){
+		$studentsByPeriod = [
+			array('period' => '-', 'total_teachers' => '0'),
+		];	
+	}
+
+	return $studentsByPeriod;
+
+}
+
+
+
 
 
 
