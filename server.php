@@ -49,6 +49,15 @@ function currentPeriod(){
 	return $obj; 	
 }
 
+
+
+function ifPeriodExist($name, $start, $end) {
+	$existe = false;
+	$resultado = mysqli_query($GLOBALS['conn'], "SELECT 1 FROM period WHERE (start_date BETWEEN '$start' AND '$end' OR end_date BETWEEN '$start' AND '$end' OR (start_date <= '$start' AND end_date >= '$end')) OR name = '$name'");
+	if(mysqli_num_rows($resultado) > 0) $existe = true;
+	return $existe;
+}
+
 function ifPersonExist($cedula){
   $existe = false;
   $resultado = mysqli_query($GLOBALS['conn'], "SELECT 1 FROM person WHERE cedula = '$cedula'");
@@ -275,52 +284,84 @@ if ($method == "POST") {
         $data = json_decode($jsonData, true);
 
         //verifica el inicio de sesion
-        if(isset($data['login'])){
-            
-            $query = "SELECT * FROM user WHERE user_name='".$data['user']."' AND isBlocked=0";
-            $result = mysqli_query($conn, $query);
-            
-            if (!$result) {
-                // Error en la consulta
-                throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
-            }
-
-            $row = mysqli_fetch_array($result);
-            $userExist = false;
-            $pass = false;
-            $user_id = '';
-            $isAdmin = 0;
-            
-            if(mysqli_num_rows($result) > 0){
-                $userExist = true;
-				if (password_verify($data['password'], $row['password'] )){
-                    $pass = true;
-                    $user_id = $row['user_id'];
-                    $isAdmin = $row['isAdmin'] ;
-                }
-            }
-            
-            $response = array('exists' => $userExist, 'pass' => $pass, 'user_id' => $user_id, 'isAdmin' => $isAdmin);
-            echo json_encode($response);
-        }
+		if (isset($data['login'])) {
+			$query = "SELECT * FROM user WHERE user_name='" . $data['user'] . "' AND isBlocked=0";
+			$result = mysqli_query($conn, $query);
 		
+			if (!$result) {
+				throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+			}
+		
+			$row = mysqli_fetch_array($result);
+			$userExist = false;
+			$pass = false;
+			$user_id = '';
+			$isAdmin = 0;
+		
+			if (mysqli_num_rows($result) > 0) {
+				$userExist = true;
+				if (password_verify($data['password'], $row['password'])) {
+					$pass = true;
+					$user_id = $row['user_id'];
+					$isAdmin = $row['isAdmin'];
+				}
+			}
+		
+			// Obtener el periodo actual
+			$periodQuery = "SELECT * FROM period WHERE isOpen=1";
+			$periodResult = mysqli_query($conn, $periodQuery);
+			$period = mysqli_fetch_array($periodResult);
+		
+			$response = array(
+				'exists' => $userExist,
+				'pass' => $pass,
+				'user_id' => $user_id,
+				'isAdmin' => $isAdmin,
+				'period' => array(
+					'start_current_period' => $period['start_date'],
+					'end_current_period' => $period['end_date']
+				)
+			);
+		
+			echo json_encode($response);
+		}
+		
+
 		if(isset($data['SendPeriodData'])){
 			$start_date = mysqli_real_escape_string($conn, $data['sinceDate']);
 			$end_date = mysqli_real_escape_string($conn, $data['toDate']);
 			$name = mysqli_real_escape_string($conn, $data['name']);
+		
+			$Q_time_period = mysqli_query($conn, "SELECT YEAR(NOW()) AS actual, YEAR(NOW() - INTERVAL 1 YEAR) AS anterior, YEAR(NOW() + INTERVAL 1 YEAR) AS siguiente");
+			$row_time_period = mysqli_fetch_assoc($Q_time_period);
+			$year_anterior = $row_time_period['anterior'];
+			$year_actual = $row_time_period['actual'];
+			$year_siguiente = $row_time_period['siguiente'];
+		
+			if((strtotime($start_date) >= strtotime("$year_anterior-01-01") && strtotime($end_date) <= strtotime("$year_actual-12-31")) ||
+			   (strtotime($start_date) >= strtotime("$year_actual-01-01") && strtotime($end_date) <= strtotime("$year_siguiente-12-31"))) {
+				
+				if(ifPeriodExist($name, $start_date, $end_date)) {
+					$response = array('message' => 'Ya existe un periodo en este rango de tiempo o el nombre ya está en uso');
+					echo json_encode($response);
+				} else {
+					$query = "INSERT INTO period (start_date, end_date, name) VALUES ('$start_date', '$end_date', '$name')";
+					$result = mysqli_query($conn, $query);
 			
-            $query = "insert into period (start_date,end_date,name) values('$start_date','$end_date','$name')";
-            $result = mysqli_query($conn, $query);
-            
-            if (!$result) {
-                // Error en la consulta
-                throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
-            }
+					if (!$result) {
+						// Error en la consulta
+						throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+					}
 			
-			$response = array('message' => 'ok');
-			echo json_encode($response);
+					$response = array('message' => 'ok');
+					echo json_encode($response);
+				}
+			} else {
+				$response = array('message' => 'Las fechas del periodo deben estar entre el año anterior y el actual, o entre el actual y el siguiente');
+				echo json_encode($response);
+			}
 		}
-
+		
 		
 		if(isset($data['update'])){ /* Actualiza segun un campo con su valor y  la tabla requerida*/
 
@@ -941,33 +982,63 @@ if ($method == "GET") {
 	}
 
 	if(isset($_GET['current_period'])){
-		
-		$time_period="";
-		$exist_period=false;
+		$time_period = "";
+		$exist_period = false;
 		$start_current_period = "";
-		$end_current_period = "";		
-		$current_period ="";
-		$isOpen=0;
-		
-		$Q_time_period = mysqli_query($conn, "SELECT YEAR(NOW()) AS actual, YEAR(NOW() - INTERVAL 1 YEAR) AS anterior");
+		$end_current_period = "";
+		$current_period = "";
+		$isOpen = 1;
+	
+		// Obtenemos los años
+		$Q_time_period = mysqli_query($conn, "SELECT YEAR(NOW()) AS actual, YEAR(NOW() - INTERVAL 1 YEAR) AS anterior, YEAR(NOW() + INTERVAL 1 YEAR) AS siguiente");
 		$row_time_period = mysqli_fetch_assoc($Q_time_period);
-		$time_period = $row_time_period['anterior']."-".$row_time_period['actual'];
-		
-		$Q_exist = mysqli_query($conn, "SELECT 1 FROM period WHERE name = '$time_period'");
-		$exist_period = mysqli_num_rows($Q_exist) > 0;		
-		
+		$time_period_candidate1 = $row_time_period['anterior']."-".$row_time_period['actual'];
+		$time_period_candidate2 = $row_time_period['actual']."-".$row_time_period['siguiente'];
+	
+		// Comprobamos si existe el periodo con cualquiera de los dos candidatos
+		$Q_exist1 = mysqli_query($conn, "SELECT 1 FROM period WHERE name = '$time_period_candidate1'");
+		$Q_exist2 = mysqli_query($conn, "SELECT 1 FROM period WHERE name = '$time_period_candidate2'");
+		$exist_period = mysqli_num_rows($Q_exist1) > 0 || mysqli_num_rows($Q_exist2) > 0;
+	
 		if($exist_period){
-			$Q_current_period = mysqli_query($conn, "select * from period order by id DESC limit 1");
+			$current_date = date('Y-m-d');
+			$Q_current_period = mysqli_query($conn, "SELECT * FROM period WHERE start_date <= '$current_date' AND end_date >= '$current_date' ORDER BY end_date DESC LIMIT 1");
 			$row_current_period = mysqli_fetch_assoc($Q_current_period);
-			$start_current_period = $row_current_period['start_date'];
-			$end_current_period = $row_current_period['end_date'];
-			$current_period = $row_current_period['name'];
-			$isOpen = $row_current_period['isOpen'];
+	
+			if ($row_current_period) {
+				$start_current_period = $row_current_period['start_date'];
+				$end_current_period = $row_current_period['end_date'];
+				$current_period = $row_current_period['name'];
+				$isOpen = $row_current_period['isOpen'];
+				$time_period = $row_current_period['name'];
+			} else {
+				// Si no hay un periodo dentro de la fecha actual
+				$exist_period = false;
+				$time_period = "";
+				$isOpen = 0;
+	
+				// Actualizamos el último periodo agregado para cerrar (isOpen = 0)
+				$Q_last_period = mysqli_query($conn, "SELECT * FROM period ORDER BY end_date DESC LIMIT 1");
+				$row_last_period = mysqli_fetch_assoc($Q_last_period);
+				if($row_last_period) {
+					$last_period_id = $row_last_period['id'];
+					mysqli_query($conn, "UPDATE period SET isOpen = 0 WHERE id = '$last_period_id'");
+				}
+			}
 		}
-		
-		$obj = array('current_period'=>$current_period,'time_period'=>$time_period,'start_current_period'=>$start_current_period,'end_current_period'=>$end_current_period,'exist_period'=>$exist_period,'isOpen'=>$isOpen);		
-		echo json_encode($obj); 
+	
+		$obj = array(
+			'current_period' => $current_period,
+			'time_period' => $time_period,
+			'start_current_period' => $start_current_period,
+			'end_current_period' => $end_current_period,
+			'exist_period' => $exist_period,
+			'isOpen' => $isOpen
+		);
+		echo json_encode($obj);
 	}
+	
+	
 
 	if(isset($_GET['person_list'])){
 		$obj = array();
@@ -1099,6 +1170,19 @@ if ($method == "GET") {
 		}
 		echo json_encode($obj);   
 	}
+
+	if(isset($_GET['section_student_list'])){
+		$obj = array();
+		$consulta = "SELECT * FROM registration WHERE isDeleted=0";
+		$resultado = mysqli_query($conn, $consulta);
+		if ($resultado && mysqli_num_rows($resultado) > 0) {
+			while($row = mysqli_fetch_assoc($resultado)) {      
+				$obj[]=array('id'=>$row['id'],'name'=>$row['name'],'grupo_estable'=>$row['grupo_estable']);
+			} 
+		}
+		echo json_encode($obj);   
+	}
+
 
 
 	
