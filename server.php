@@ -21,33 +21,38 @@ if(!$conn){
 
 //funciones de utilidad para el server
 
-function currentPeriod(){
-	$time_period="";
-	$exist_period=false;
-	$start_current_period = "";
-	$end_current_period = "";		
-	$current_period ="";
-	$isOpen=0;
-	
-	$Q_time_period = mysqli_query($GLOBALS['conn'], "SELECT YEAR(NOW()) AS actual, YEAR(NOW() - INTERVAL 1 YEAR) AS anterior");
-	$row_time_period = mysqli_fetch_assoc($Q_time_period);
-	$time_period = $row_time_period['anterior']."-".$row_time_period['actual'];
-	
-	$Q_exist = mysqli_query($GLOBALS['conn'], "SELECT 1 FROM period WHERE name = '$time_period'");
-	$exist_period = mysqli_num_rows($Q_exist) > 0;		
-	
-	if($exist_period){
-		$Q_current_period = mysqli_query($GLOBALS['conn'], "select * from period order by id DESC limit 1");
-		$row_current_period = mysqli_fetch_assoc($Q_current_period);
-		$start_current_period = $row_current_period['start_date'];
-		$end_current_period = $row_current_period['end_date'];
-		$current_period = $row_current_period['name'];
-		$isOpen = $row_current_period['isOpen'];
-	}
-	
-	$obj = array('current_period'=>$current_period,'time_period'=>$time_period,'start_current_period'=>$start_current_period,'end_current_period'=>$end_current_period,'exist_period'=>$exist_period,'isOpen'=>$isOpen);		
-	return $obj; 	
+function currentPeriod() {
+    $result = array(
+        'current_period' => '',
+        'time_period' => '',
+        'start_current_period' => '',
+        'end_current_period' => '',
+        'exist_period' => false,
+        'isOpen' => 0
+    );
+
+    $conn = $GLOBALS['conn']; // Asegúrate de que la conexión está disponible
+
+    $query = "SELECT * FROM period WHERE isOpen = 1";
+    $query_result = mysqli_query($conn, $query);
+
+    if (!$query_result) {
+        throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+    }
+
+    if (mysqli_num_rows($query_result) > 0) {
+        $row = mysqli_fetch_assoc($query_result);
+
+        $result['current_period'] = $row['name'];
+        $result['start_current_period'] = $row['start_date'];
+        $result['end_current_period'] = $row['end_date'];
+        $result['exist_period'] = true;
+        $result['isOpen'] = $row['isOpen'];
+    }
+
+    return $result;
 }
+
 
 
 
@@ -988,7 +993,7 @@ if ($method == "GET") {
 		$end_current_period = "";
 		$current_period = "";
 		$isOpen = 1;
-	
+		$last_period = "";
 		// Obtenemos los años
 		$Q_time_period = mysqli_query($conn, "SELECT YEAR(NOW()) AS actual, YEAR(NOW() - INTERVAL 1 YEAR) AS anterior, YEAR(NOW() + INTERVAL 1 YEAR) AS siguiente");
 		$row_time_period = mysqli_fetch_assoc($Q_time_period);
@@ -1011,6 +1016,12 @@ if ($method == "GET") {
 				$current_period = $row_current_period['name'];
 				$isOpen = $row_current_period['isOpen'];
 				$time_period = $row_current_period['name'];
+
+				// Actualizamos el último periodo agregado para cerrar (isOpen = 0)
+				$Q_second_last_period = mysqli_query($conn, "SELECT * FROM period ORDER BY end_date DESC LIMIT 1 OFFSET 1");
+				$row_second_last_period = mysqli_fetch_assoc($Q_second_last_period);
+				$last_period = $row_second_last_period['name'];
+				
 			} else {
 				// Si no hay un periodo dentro de la fecha actual
 				$exist_period = false;
@@ -1020,6 +1031,8 @@ if ($method == "GET") {
 				// Actualizamos el último periodo agregado para cerrar (isOpen = 0)
 				$Q_last_period = mysqli_query($conn, "SELECT * FROM period ORDER BY end_date DESC LIMIT 1");
 				$row_last_period = mysqli_fetch_assoc($Q_last_period);
+				$last_period = $row_last_period['name'];
+
 				if($row_last_period) {
 					$last_period_id = $row_last_period['id'];
 					mysqli_query($conn, "UPDATE period SET isOpen = 0 WHERE id = '$last_period_id'");
@@ -1029,6 +1042,7 @@ if ($method == "GET") {
 	
 		$obj = array(
 			'current_period' => $current_period,
+			'last_period' => $last_period,
 			'time_period' => $time_period,
 			'start_current_period' => $start_current_period,
 			'end_current_period' => $end_current_period,
@@ -1338,44 +1352,45 @@ if ($method == "GET") {
 		}
 	}
 
-	if(isset($_GET['stadistic'])){
-		$period = currentPeriod()['current_period'];
+	if (isset($_GET['stadistic'])) {
+		$periodData = currentPeriod();
+		$period = $periodData['current_period'];
 		$sumParent = 0;
 		$sumTeacher = 0;
-		$sumSection = 0;	
-		$sumStudent = 0;	
-
-		$consulta = "select count(student_id) as total from registration where period = '$period'";
+		$sumSection = 0;
+		$sumStudent = 0;
+	
+		$consulta = "SELECT count(student_id) as total FROM registration WHERE period = '$period'";
 		$resultado = mysqli_query($conn, $consulta);
-		$row = $row = mysqli_fetch_assoc($resultado);
-		$sumStudent =  $row['total'];
-
-		$consulta = "select count(*) as total from teacher";
+		$row = mysqli_fetch_assoc($resultado);
+		$sumStudent = $row['total'];
+	
+		$consulta = "SELECT count(*) as total FROM teacher";
 		$resultado = mysqli_query($conn, $consulta);
-		$row = $row = mysqli_fetch_assoc($resultado);
-		$sumTeacher =  $row['total'];
-
-		$consulta = "select count(*) as total from section where period = '$period'";
+		$row = mysqli_fetch_assoc($resultado);
+		$sumTeacher = $row['total'];
+	
+		$consulta = "SELECT count(*) as total FROM section WHERE period = '$period'";
 		$resultado = mysqli_query($conn, $consulta);
-		$row = $row = mysqli_fetch_assoc($resultado);
-		$sumSection =  $row['total'];		
-
-		$consulta = "select count(DISTINCT registration.parent_id) as total from registration inner join parent where registration.parent_id = parent.person_id AND registration.period = '$period' GROUP BY registration.parent_id";
+		$row = mysqli_fetch_assoc($resultado);
+		$sumSection = $row['total'];
+	
+		$consulta = "SELECT COALESCE(COUNT(DISTINCT registration.parent_id), 0) AS total FROM registration INNER JOIN parent ON registration.parent_id = parent.person_id WHERE registration.period = '$period';";
 		$resultado = mysqli_query($conn, $consulta);
-		$row = $row = mysqli_fetch_assoc($resultado);
-		$sumParent =  $row['total'];		
-
+		$row = mysqli_fetch_assoc($resultado);
+		$sumParent = $row['total'];
+	
 		$obj = array(
-			"period"=>$period, 
+			"period" => $period,
 			"sumStudent" => $sumStudent,
 			"sumTeacher" => $sumTeacher,
 			"sumSection" => $sumSection,
 			"sumParent" => $sumParent
 		);
-
-		echo json_encode($obj); 
+	
+		echo json_encode($obj);
 	}
-
+	
 
 	if(isset($_GET['reportStatistics'])){
 
