@@ -157,6 +157,30 @@ function returnDatPersonByCedula($cedula) {
 	return $obj;	
 }
 
+function returnDatPersonByStudentId($person_id) {
+	$obj = array();
+    $resultado = mysqli_query($GLOBALS['conn'], "SELECT * FROM person WHERE id = $person_id");
+    if ($resultado && mysqli_num_rows($resultado) > 0) {
+        $row = mysqli_fetch_assoc($resultado);
+		$obj = array(
+			'id'=>$row['id'],
+			'cedula' => $row['cedula'],
+			'name' => $row['name'],
+			'last_name'	=> $row['last_name'],
+		);
+    }
+	return $obj;	
+}
+
+function returnPersonId_student($id) {
+    $resultado = mysqli_query($GLOBALS['conn'], "SELECT person_id FROM student WHERE id = $id");
+
+	return $resultado;	
+}
+
+
+
+
 function returnListSection($period){
 	$obj = array();
 	$consulta = "SELECT * from section where period='$period'";		
@@ -217,6 +241,20 @@ function returnRegisterList($student_id){
 }
 
 
+function returnChildrenRegistration($parentId){
+	$obj = array();
+	$consulta = "SELECT * from registration where parent_id = $parentId";		
+	$resultado = mysqli_query($GLOBALS['conn'], $consulta);
+
+		while($row = mysqli_fetch_assoc($resultado)) {
+			$obj[]=array('id'=>$row['id'],'year'=>$row['year'],'section_id'=>returnDatSection($row['section_id']),'student_id'=>returnDatPerson($row['student_id']),'student_rel'=>$row['student_rel'],'period'=>$row['period']);
+		}   			
+	
+	return $obj;
+}
+
+
+
 function returnTeacherData($teacher_id){
 	$obj = array();
 	$consulta = "SELECT * from teacher where person_id = ".$teacher_id."";		
@@ -275,6 +313,28 @@ function ifSubjectExists($name) {
 	return false;
 }
 
+
+function returnPersonName($person_id) {
+    $resultado = mysqli_query($GLOBALS['conn'], "SELECT name FROM person WHERE id = $person_id");
+    $row = mysqli_fetch_assoc($resultado);
+    
+    return $row['name']; // Devuelve solo el valor del nombre
+}
+
+function addToHistory($user_id, $action) {
+    global $conn; // Necesario para acceder a la variable $conn
+    $query = "INSERT INTO user_history (user_id,action) VALUES ($user_id,'$action')"; // Usa comillas simples para los valores de texto
+    $result = mysqli_query($conn, $query);
+
+    if (!$result) {
+        throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+    }
+
+    return array("message" => "ok"); // Devuelve el array en lugar de hacer echo
+}
+
+
+
 //-------------------------------------
 
 //*******Metodos de Comunicacion con el Front *************
@@ -301,6 +361,7 @@ if ($method == "POST") {
 			$userExist = false;
 			$pass = false;
 			$user_id = '';
+			$person_id = '';
 			$isAdmin = 0;
 		
 			if (mysqli_num_rows($result) > 0) {
@@ -308,6 +369,7 @@ if ($method == "POST") {
 				if (password_verify($data['password'], $row['password'])) {
 					$pass = true;
 					$user_id = $row['user_id'];
+					$person_id = $row['person_id'];
 					$isAdmin = $row['isAdmin'];
 				}
 			}
@@ -321,6 +383,7 @@ if ($method == "POST") {
 				'exists' => $userExist,
 				'pass' => $pass,
 				'user_id' => $user_id,
+				'person_id' => $person_id,
 				'isAdmin' => $isAdmin,
 				'period' => array(
 					'start_current_period' => $period['start_date'],
@@ -350,8 +413,21 @@ if ($method == "POST") {
 					$response = array('message' => 'Ya existe un periodo en este rango de tiempo o el nombre ya está en uso');
 					echo json_encode($response);
 				} else {
+
+					// Actualizamos el último periodo agregado para cerrar (isOpen = 0)
+					$Q_last_period = mysqli_query($conn, "SELECT * FROM period ORDER BY end_date DESC LIMIT 1");
+					$row_last_period = mysqli_fetch_assoc($Q_last_period);
+					$last_period = $row_last_period['name'];
+					
+										
+					if($row_last_period) {
+						$last_period_id = $row_last_period['id'];
+						mysqli_query($conn, "UPDATE period SET isOpen = 0 WHERE id = '$last_period_id'");
+					}
+
 					$query = "INSERT INTO period (start_date, end_date, name) VALUES ('$start_date', '$end_date', '$name')";
 					$result = mysqli_query($conn, $query);
+
 			
 					if (!$result) {
 						// Error en la consulta
@@ -410,6 +486,132 @@ if ($method == "POST") {
 		}
 
 
+		if(isset($data['updateUser'])){ 
+			// Actualiza según un campo con su valor y la tabla requerida
+			header('Content-Type: application/json'); // Asegura el encabezado JSON
+		
+			$campo = mysqli_real_escape_string($conn, $data['campo']);
+			$valor = mysqli_real_escape_string($conn, strtolower($data['valor']));
+			$tabla = mysqli_real_escape_string($conn, $data['tabla']);
+			
+			$query = "UPDATE $tabla SET $campo = '$valor' WHERE user_id=".$data['updateUser']; 
+			$result = mysqli_query($conn, $query);
+		
+			// Historial
+			$historyName = returnPersonName($data['history']['person_id']);
+			$texto = '';
+		
+			if ($valor == '1') {
+				$texto = "$historyName Ha Deshabilitado A Un Usuario";
+			} else {
+				$texto = "$historyName ha habilitado a un usuario";
+			}
+			$historyResponse = addToHistory($data['history']['user'], $texto);
+			// Fin Historial
+		
+			if (!$result) {
+				// Error en la consulta
+				$response = array("message" => "Error en la consulta SQL: " . mysqli_error($conn));
+				echo json_encode($response);
+				exit();
+			}
+			
+			$response = array("message" => "ok");
+			echo json_encode($response);
+			exit();
+		}
+		
+
+		
+
+		if(isset($data['updateBlock'])){ 
+			// Actualiza según un campo con su valor y la tabla requerida
+			header('Content-Type: application/json'); // Asegura el encabezado JSON
+			$response = array('message' => 'Entrando');
+			echo json_encode($response);
+		
+			$campo = mysqli_real_escape_string($conn, $data['campo']);
+			$valor = mysqli_real_escape_string($conn, strtolower($data['valor']));
+			$tabla = mysqli_real_escape_string($conn, $data['tabla']);
+			
+			$query = "UPDATE $tabla SET $campo = '$valor' WHERE user_id=".$data['updateBlock']; 
+			$result = mysqli_query($conn, $query);
+		
+			// Historial
+			$texto = '';
+		
+			if($valor == '1'){
+				$texto = returnPersonName($data['history']['person_id']) . " ha bloqueado a un usuario";
+			} else {
+				$texto = returnPersonName($data['history']['person_id']) . " ha desbloqueado a un usuario";
+			}
+			$historyResponse = addToHistory($data['history']['user'], $texto);
+			// Fin Historial
+		
+			if (!$result) {
+				// Error en la consulta
+				$response = array("message" => "Error en la consulta SQL: " . mysqli_error($conn));
+				echo json_encode($response);
+				exit();
+			}
+			
+			$response = array("message" => "ok");
+			echo json_encode($response);
+			exit();
+		}
+		
+		
+
+		if(isset($data['updateSingleField'])){ /* Actualiza segun un campo con su valor y  la tabla requerida*/
+
+			$campo = mysqli_real_escape_string($conn, $data['campo']);
+			$valor = mysqli_real_escape_string($conn, strtolower($data['valor']));
+			$tabla = mysqli_real_escape_string($conn, $data['tabla']);
+			$whereCondition =	 mysqli_real_escape_string($conn, $data['whereCondition']);
+
+			
+            $query = "UPDATE $tabla SET $campo = $valor WHERE $whereCondition";
+            $result = mysqli_query($conn, $query);
+            
+            if (!$result) {
+                // Error en la consulta
+                throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+            }
+			
+			$response = array("message" => "ok");
+			echo json_encode($response);
+		}
+
+
+
+		if(isset($data['updateSingleFieldSubject'])){ /* Actualiza segun un campo con su valor y  la tabla requerida*/
+
+			$campo = mysqli_real_escape_string($conn, $data['campo']);
+			$valor = mysqli_real_escape_string($conn, strtolower($data['valor']));
+			$tabla = mysqli_real_escape_string($conn, $data['tabla']);
+			$whereCondition =	 mysqli_real_escape_string($conn, $data['whereCondition']);
+
+			
+            $query = "UPDATE $tabla SET $campo = $valor WHERE $whereCondition";
+            $result = mysqli_query($conn, $query);
+
+			// Historial
+			$historyName= returnPersonName($data['history']['person_id']);
+			$texto = returnPersonName($data['history']['person_id'])." Ha Desabilitado Una Materia";
+			$historyResponse = addToHistory($data['history']['user'], $texto);
+			//Fin Historial
+            
+            if (!$result) {
+                // Error en la consulta
+                throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+            }
+			
+			$response = array("message" => "ok");
+			echo json_encode($response);
+		}
+
+
+
 		if(isset($data['dismiss'])){ /* Actualiza segun un campo con su valor y  la tabla requerida*/
 
 			$id = mysqli_real_escape_string($conn, $data['id']);
@@ -418,6 +620,14 @@ if ($method == "POST") {
 			
             $query = "UPDATE teacher SET dismissal = '$dismiss' WHERE person_id = $id";
             $result = mysqli_query($conn, $query);
+
+			// Historial
+			$historyName= returnPersonName($data['history']['person_id']);
+			$texto = returnPersonName($data['history']['person_id'])." Ha Despedido A Un Profesor";
+			$historyResponse = addToHistory($data['history']['user'], $texto);
+			//Fin Historial
+
+
             
             if (!$result) {
                 // Error en la consulta
@@ -544,6 +754,13 @@ if ($method == "POST") {
 				if (!$result_teacher) {
 					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
 				}
+
+				// Historial
+				$historyName= returnPersonName($data['history']['person_id']);
+				$texto = returnPersonName($data['history']['person_id'])." Ha Registrado A Un Profesor";
+				$historyResponse = addToHistory($data['history']['user'], $texto);
+				//Fin Historial
+
 				$message = 'Profesor Registrado con exito';
 				$icon = 'success';
 
@@ -588,6 +805,12 @@ if ($method == "POST") {
 
 				$second_query = "UPDATE teacher SET total_work_charge=$total_work_charge,qualification='$qualification',degree='$degree',second_qualification='$second_qualification',second_degree='$second_degree' WHERE person_id=$id";
 				$second_result = mysqli_query($conn, $second_query);
+
+				// Historial
+				$historyName= returnPersonName($data['history']['person_id']);
+				$texto = returnPersonName($data['history']['person_id'])." Ha Editado Un Profesor";
+				$historyResponse = addToHistory($data['history']['user'], $texto);
+				//Fin Historial
 
 				if (!$result || !$second_result) {
 					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
@@ -659,15 +882,16 @@ if ($method == "POST") {
 			$subject_id = mysqli_real_escape_string($conn, strtolower($data['subject']));
 			$start_hour = mysqli_real_escape_string($conn, strtolower($data['start']));
 			$end_hour = mysqli_real_escape_string($conn, strtolower($data['end']));
+			$period = mysqli_real_escape_string($conn, strtolower($data['period']));
 			// ...otros campos
 		
 			// Verifica si ya existe una entrada con los mismos día, sección, hora de inicio y hora de cierre
-			$checkQuery = "SELECT * FROM work_charge WHERE day=$day AND section_id=$section_id AND start_hour='$start_hour' AND end_hour='$end_hour'";
+			$checkQuery = "SELECT * FROM work_charge WHERE day=$day AND section_id=$section_id AND start_hour='$start_hour' AND end_hour='$end_hour' AND period='$period'";
 			$checkResult = mysqli_query($conn, $checkQuery);
 		
 			if (mysqli_num_rows($checkResult) > 0) {
 				// Si existe, actualiza la materia
-				$updateQuery = "UPDATE work_charge SET subject_id=$subject_id WHERE day=$day AND section_id=$section_id AND start_hour='$start_hour' AND end_hour='$end_hour'";
+				$updateQuery = "UPDATE work_charge SET subject_id=$subject_id WHERE day=$day AND section_id=$section_id AND start_hour='$start_hour' AND end_hour='$end_hour' AND period='$period'";
 				$updateResult = mysqli_query($conn, $updateQuery);
 		
 				if (!$updateResult) {
@@ -680,7 +904,7 @@ if ($method == "POST") {
 				}
 			} else {
 				// Si no existe, inserta una nueva entrada
-				$insertQuery = "INSERT INTO work_charge (day, section_id, subject_id, start_hour, end_hour) VALUES ($day, $section_id, $subject_id, '$start_hour', '$end_hour')";
+				$insertQuery = "INSERT INTO work_charge (day, section_id, subject_id, start_hour, end_hour,period) VALUES ($day, $section_id, $subject_id, '$start_hour', '$end_hour', '$period')";
 				$insertResult = mysqli_query($conn, $insertQuery);
 		
 				if (!$insertResult) {
@@ -708,19 +932,20 @@ if ($method == "POST") {
 			$teacher_id = mysqli_real_escape_string($conn, strtolower($data['teacher']));
 			$start_hour = mysqli_real_escape_string($conn, strtolower($data['start']));
 			$end_hour = mysqli_real_escape_string($conn, strtolower($data['end']));
-		
+			$period = mysqli_real_escape_string($conn, strtolower($data['period']));
+
 			// Verifica si el profesor ya tiene una entrada con la misma hora de inicio y fin
-			$teacherCheckQuery = "SELECT * FROM work_charge WHERE teacher_id=$teacher_id AND start_hour='$start_hour' AND end_hour='$end_hour' AND day=$day";
+			$teacherCheckQuery = "SELECT * FROM work_charge WHERE teacher_id=$teacher_id AND start_hour='$start_hour' AND end_hour='$end_hour' AND day=$day AND period='$period'";
 			$teacherCheckResult = mysqli_query($conn, $teacherCheckQuery);
 		
 			if (mysqli_num_rows($teacherCheckResult) == 0) {
 				
-				$checkQuery = "SELECT * FROM work_charge WHERE day=$day AND section_id=$section_id AND start_hour='$start_hour' AND end_hour='$end_hour'";
+				$checkQuery = "SELECT * FROM work_charge WHERE day=$day AND section_id=$section_id AND start_hour='$start_hour' AND end_hour='$end_hour' AND period='$period'";
 				$checkResult = mysqli_query($conn, $checkQuery);
 				
 				if (mysqli_num_rows($checkResult) > 0) {
 					// Si existe, actualiza el teacher_id
-					$updateQuery = "UPDATE work_charge SET teacher_id=$teacher_id WHERE day=$day AND section_id=$section_id AND start_hour='$start_hour' AND end_hour='$end_hour'";
+					$updateQuery = "UPDATE work_charge SET teacher_id=$teacher_id WHERE day=$day AND section_id=$section_id AND start_hour='$start_hour' AND end_hour='$end_hour' AND period='$period'";
 					$updateResult = mysqli_query($conn, $updateQuery);
 					
 					if (!$updateResult) {
@@ -740,7 +965,7 @@ if ($method == "POST") {
 
 				} else {
 					// Si no existe, inserta una nueva entrada
-					$insertQuery = "INSERT INTO work_charge (day, section_id, teacher_id, start_hour, end_hour) VALUES ($day, $section_id, $teacher_id, '$start_hour', '$end_hour')";
+					$insertQuery = "INSERT INTO work_charge (day, section_id, teacher_id, start_hour, end_hour,period) VALUES ($day, $section_id, $teacher_id, '$start_hour', '$end_hour', '$period')";
 					$insertResult = mysqli_query($conn, $insertQuery);
 		
 					if (!$insertResult) {
@@ -782,6 +1007,12 @@ if ($method == "POST") {
 					$query = "INSERT INTO subject (name,grupo_estable) VALUES ('$name',$grupo_estable)";
 					$result = mysqli_query($conn, $query);
 
+					// Historial
+					$historyName= returnPersonName($data['history']['person_id']);
+					$texto = returnPersonName($data['history']['person_id'])." Ha Añadido Una Materia";
+					$historyResponse = addToHistory($data['history']['user'], $texto);
+					//Fin Historial
+
 					if (!$result) {
 						throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
 						$message = 'Error';
@@ -808,6 +1039,12 @@ if ($method == "POST") {
 
 					$query = "UPDATE subject SET name='$name', grupo_estable=$grupo_estable WHERE id=$id";
 					$result = mysqli_query($conn, $query);
+
+					// Historial
+					$historyName= returnPersonName($data['history']['person_id']);
+					$texto = returnPersonName($data['history']['person_id'])." Ha Editado Una Materia";
+					$historyResponse = addToHistory($data['history']['user'], $texto);
+					//Fin Historial
 
 					if (!$result) {
 						throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
@@ -846,6 +1083,12 @@ if ($method == "POST") {
 					isAdmin=$isAdmin where user_id=$id";
 
 				$result = mysqli_query($conn, $query);
+
+				// Historial
+				$historyName= returnPersonName($data['history']['person_id']);
+				$texto = returnPersonName($data['history']['person_id'])." Ha Editado A Un Usuario";
+				$historyResponse = addToHistory($data['history']['user'], $texto);
+				//Fin Historial
 
 				if (!$result) {
 					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
@@ -957,6 +1200,48 @@ if ($method == "POST") {
 				$query = "UPDATE person SET cedula='$cedula',nationality='$nationality',name='$name',second_name='$second_name',last_name='$last_name',second_last_name='$second_last_name',email='$email',phone='$phone',address='$address',gender='$gender',birthday='$birthday' WHERE id=$id";
 				$result = mysqli_query($conn, $query);
 
+				// Historial
+				$historyName= returnPersonName($data['history']['person_id']);
+				$texto = returnPersonName($data['history']['person_id'])." ha editado a un estudiante";
+				$historyResponse = addToHistory($data['history']['user'], $texto);
+				//Fin Historial
+
+				if (!$result) {
+					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+					$message = 'Error';
+				}
+
+			$response = array('message' => $message);
+			echo json_encode($response);
+		}
+
+		if (isset($data['editParent'])) {
+
+			$message = 'Editado';
+
+				// Escapa los valores para evitar inyección de SQL
+				$id = mysqli_real_escape_string($conn, $data['student']['id']);
+				$nationality = mysqli_real_escape_string($conn, $data['student']['nationality']);
+				$cedula = mysqli_real_escape_string($conn, $data['student']['cedula']);
+				$name = mysqli_real_escape_string($conn, strtolower($data['student']['name']));
+				$second_name = mysqli_real_escape_string($conn, strtolower($data['student']['second_name']));
+				$last_name = mysqli_real_escape_string($conn, strtolower($data['student']['last_name']));
+				$second_last_name = mysqli_real_escape_string($conn, strtolower($data['student']['second_last_name']));
+				$email = mysqli_real_escape_string($conn, strtolower($data['student']['email']));
+				$phone = mysqli_real_escape_string($conn, $data['student']['phone']);
+				$address = mysqli_real_escape_string($conn, strtolower($data['student']['address']));
+				$gender = mysqli_real_escape_string($conn, $data['student']['gender']);
+				$birthday = mysqli_real_escape_string($conn, $data['student']['birthday']);
+				// ...otros campos    
+				$query = "UPDATE person SET cedula='$cedula',nationality='$nationality',name='$name',second_name='$second_name',last_name='$last_name',second_last_name='$second_last_name',email='$email',phone='$phone',address='$address',gender='$gender',birthday='$birthday' WHERE id=$id";
+				$result = mysqli_query($conn, $query);
+
+				// Historial
+				$historyName= returnPersonName($data['history']['person_id']);
+				$texto = returnPersonName($data['history']['person_id'])." ha editado a un representante";
+				$historyResponse = addToHistory($data['history']['user'], $texto);
+				//Fin Historial
+
 				if (!$result) {
 					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
 					$message = 'Error';
@@ -1033,10 +1318,11 @@ if ($method == "GET") {
 				$row_last_period = mysqli_fetch_assoc($Q_last_period);
 				$last_period = $row_last_period['name'];
 
+				/*
 				if($row_last_period) {
 					$last_period_id = $row_last_period['id'];
 					mysqli_query($conn, "UPDATE period SET isOpen = 0 WHERE id = '$last_period_id'");
-				}
+				}*/
 			}
 		}
 	
@@ -1129,7 +1415,7 @@ if ($method == "GET") {
 		$resultado = mysqli_query($conn, $consulta);
 		if ($resultado && mysqli_num_rows($resultado) > 0) {
 			while($row = mysqli_fetch_assoc($resultado)) {      
-				$obj[]=array('id'=>$row['id'],'phone'=>$row['phone'],'cedula'=>$row['cedula'],'nationality'=>$row['nationality'],'name'=>$row['name'],'second_name'=>$row['second_name'],'last_name'=>$row['last_name'],'second_last_name'=>$row['second_last_name'],'email'=>$row['email'],'birthday'=>$row['birthday'],'gender'=>$row['gender'],'address'=>$row['address']);
+				$obj[]=array('id'=>$row['id'],'phone'=>$row['phone'],'cedula'=>$row['cedula'],'nationality'=>$row['nationality'],'name'=>$row['name'],'second_name'=>$row['second_name'],'last_name'=>$row['last_name'],'second_last_name'=>$row['second_last_name'],'email'=>$row['email'],'birthday'=>$row['birthday'],'gender'=>$row['gender'],'address'=>$row['address'],'profileData'=>returnChildrenRegistration($row['id']));
 			}   
 		}
 		echo json_encode($obj); 
@@ -1186,18 +1472,29 @@ if ($method == "GET") {
 	}
 
 	if(isset($_GET['section_student_list'])){
+		
+		$section_id = $_GET['id']; 
 		$obj = array();
-		$consulta = "SELECT * FROM registration WHERE isDeleted=0";
+		$consulta = "SELECT * FROM registration where section_id = $section_id ";
 		$resultado = mysqli_query($conn, $consulta);
 		if ($resultado && mysqli_num_rows($resultado) > 0) {
-			while($row = mysqli_fetch_assoc($resultado)) {      
-				$obj[]=array('id'=>$row['id'],'name'=>$row['name'],'grupo_estable'=>$row['grupo_estable']);
+			while($row = mysqli_fetch_assoc($resultado)) {
+				$person_id_result = returnPersonId_student($row['student_id']);
+				if ($person_id_result && mysqli_num_rows($person_id_result) > 0) {
+					$person_id_row = mysqli_fetch_assoc($person_id_result);
+					$person_data = returnDatPersonByStudentId($person_id_row['person_id']);
+					$obj[] = array(
+						'id' => $row['id'],
+						'name' => $person_data['name'],
+						'last_name' => $person_data['last_name'],
+						'cedula' => $person_data['cedula']
+					);
+				}
 			} 
 		}
 		echo json_encode($obj);   
 	}
-
-
+	
 
 	
 
@@ -1405,6 +1702,21 @@ if ($method == "GET") {
 
 		echo json_encode($obj); 
 	}
+
+	
+	if(isset($_GET['history_data'])){
+		$obj = array();
+		$consulta = "SELECT * FROM user_history";
+		$resultado = mysqli_query($conn, $consulta);
+   	 	
+		if ($resultado && mysqli_num_rows($resultado) > 0) {
+        	while($row = mysqli_fetch_assoc($resultado)) {      
+            	$obj[]=array('action'=>$row['action'],'date'=>$row['date']);
+        	}   
+    	}
+    echo json_encode($obj); 
+}
+    
 
 
 
