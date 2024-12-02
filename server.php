@@ -502,7 +502,7 @@ if ($method == "POST") {
 			$texto = '';
 		
 			if ($valor == '1') {
-				$texto = "$historyName Ha Deshabilitado A Un Usuario";
+				$texto = "$historyName ha deshabilitado a un usuario";
 			} else {
 				$texto = "$historyName ha habilitado a un usuario";
 			}
@@ -597,7 +597,7 @@ if ($method == "POST") {
 
 			// Historial
 			$historyName= returnPersonName($data['history']['person_id']);
-			$texto = returnPersonName($data['history']['person_id'])." Ha Desabilitado Una Materia";
+			$texto = returnPersonName($data['history']['person_id'])." ha desabilitado una Materia";
 			$historyResponse = addToHistory($data['history']['user'], $texto);
 			//Fin Historial
             
@@ -623,7 +623,7 @@ if ($method == "POST") {
 
 			// Historial
 			$historyName= returnPersonName($data['history']['person_id']);
-			$texto = returnPersonName($data['history']['person_id'])." Ha Despedido A Un Profesor";
+			$texto = returnPersonName($data['history']['person_id'])." ha despedido a un Profesor";
 			$historyResponse = addToHistory($data['history']['user'], $texto);
 			//Fin Historial
 
@@ -676,6 +676,12 @@ if ($method == "POST") {
 				$message = 'Usuario Inscrito con exito';
 				$icon = 'success';
 
+				// Historial
+				$historyName= returnPersonName($data['history']['person_id']);
+				$texto = returnPersonName($data['history']['person_id'])." ha inscrito un estudiante";
+				$historyResponse = addToHistory($data['history']['user'], $texto);
+				//Fin Historial
+
 			}else{
 				$endIdParent = returnIdParent($data['parent']['cedula']);
 			}
@@ -687,6 +693,12 @@ if ($method == "POST") {
 				$message = 'Usuario Inscrito con exito';
 				$icon = 'success';
 
+				// Historial
+				$historyName= returnPersonName($data['history']['person_id']);
+				$texto = returnPersonName($data['history']['person_id'])." ha inscrito un estudiante";
+				$historyResponse = addToHistory($data['history']['user'], $texto);
+				//Fin Historial
+
 			}else{
 				$endIdStudent = returnIdParent($data['student']['cedula']);
 			}
@@ -696,6 +708,12 @@ if ($method == "POST") {
 				$result_student = mysqli_query($conn, $QinserRegistration);	
 				$message = 'Usuario Inscrito con exito';
 				$icon = 'success';
+
+				// Historial
+				$historyName= returnPersonName($data['history']['person_id']);
+				$texto = returnPersonName($data['history']['person_id'])." ha inscrito un estudiante";
+				$historyResponse = addToHistory($data['history']['user'], $texto);
+				//Fin Historial
 
 			}
 			else{
@@ -757,7 +775,7 @@ if ($method == "POST") {
 
 				// Historial
 				$historyName= returnPersonName($data['history']['person_id']);
-				$texto = returnPersonName($data['history']['person_id'])." Ha Registrado A Un Profesor";
+				$texto = returnPersonName($data['history']['person_id'])." ha registrado a un profesor";
 				$historyResponse = addToHistory($data['history']['user'], $texto);
 				//Fin Historial
 
@@ -808,7 +826,7 @@ if ($method == "POST") {
 
 				// Historial
 				$historyName= returnPersonName($data['history']['person_id']);
-				$texto = returnPersonName($data['history']['person_id'])." Ha Editado Un Profesor";
+				$texto = returnPersonName($data['history']['person_id'])." ha editado un profesor";
 				$historyResponse = addToHistory($data['history']['user'], $texto);
 				//Fin Historial
 
@@ -837,6 +855,12 @@ if ($method == "POST") {
 				$query = "INSERT INTO section (year,section_name,teacher_id,quota,period) VALUES ('$year','$SectionName',$person_id,$quota,'$period')";
 				$result = mysqli_query($conn, $query);
 
+				// Historial
+				$historyName= returnPersonName($data['history']['person_id']);
+				$texto = returnPersonName($data['history']['person_id'])." ha creado una sección";
+				$historyResponse = addToHistory($data['history']['user'], $texto);
+				//Fin Historial
+
 				if (!$result) {
 					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
 					$message = 'Error';
@@ -861,6 +885,12 @@ if ($method == "POST") {
 				// ...otros campos    
 				$query = "UPDATE section SET year='$year',section_name='$SectionName',teacher_id=$person_id,quota=$quota,period='$period' WHERE id=$id";
 				$result = mysqli_query($conn, $query);
+
+				// Historial
+				$historyName= returnPersonName($data['history']['person_id']);
+				$texto = returnPersonName($data['history']['person_id'])." ha editado una sección";
+				$historyResponse = addToHistory($data['history']['user'], $texto);
+				//Fin Historial
 
 				if (!$result) {
 					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
@@ -1009,7 +1039,7 @@ if ($method == "POST") {
 
 					// Historial
 					$historyName= returnPersonName($data['history']['person_id']);
-					$texto = returnPersonName($data['history']['person_id'])." Ha Añadido Una Materia";
+					$texto = returnPersonName($data['history']['person_id'])." ha añadido una materia";
 					$historyResponse = addToHistory($data['history']['user'], $texto);
 					//Fin Historial
 
@@ -1042,7 +1072,7 @@ if ($method == "POST") {
 
 					// Historial
 					$historyName= returnPersonName($data['history']['person_id']);
-					$texto = returnPersonName($data['history']['person_id'])." Ha Editado Una Materia";
+					$texto = returnPersonName($data['history']['person_id'])." ha editado una materia";
 					$historyResponse = addToHistory($data['history']['user'], $texto);
 					//Fin Historial
 
@@ -1086,7 +1116,7 @@ if ($method == "POST") {
 
 				// Historial
 				$historyName= returnPersonName($data['history']['person_id']);
-				$texto = returnPersonName($data['history']['person_id'])." Ha Editado A Un Usuario";
+				$texto = returnPersonName($data['history']['person_id'])." ha editado a un usuario";
 				$historyResponse = addToHistory($data['history']['user'], $texto);
 				//Fin Historial
 
@@ -1138,6 +1168,12 @@ if ($method == "POST") {
 						$hashContrasena = password_hash($data['userData']['password'], PASSWORD_BCRYPT);
 						$QinsertUser = "INSERT INTO user (person_id,user_name,password,isAdmin) VALUES ($endIdPerson,'".$data['userData']['user_name']."','".$hashContrasena."',".$data['userData']['isAdmin'].")";
 						$result = mysqli_query($conn, $QinsertUser);
+
+						// Historial
+						$historyName= returnPersonName($data['history']['person_id']);
+						$texto = returnPersonName($data['history']['person_id'])." ha añadido a un usuario";
+						$historyResponse = addToHistory($data['history']['user'], $texto);
+						//Fin Historial
 						if (!$result) {
 							throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
 						}												
@@ -1154,6 +1190,14 @@ if ($method == "POST") {
 					$hashContrasena = password_hash($data['userData']['password'], PASSWORD_BCRYPT);					
 					$QinsertUser = "INSERT INTO user (person_id,user_name,password,isAdmin) VALUES ($endIdPerson,'".$data['userData']['user_name']."','".$hashContrasena."',".$data['userData']['isAdmin'].")";
 					$result = mysqli_query($conn, $QinsertUser);
+
+					
+					// Historial
+					$historyName= returnPersonName($data['history']['person_id']);
+					$texto = returnPersonName($data['history']['person_id'])." ha añadido a un usuario";
+					$historyResponse = addToHistory($data['history']['user'], $texto);
+					//Fin Historial
+
 					if (!$result) {
 						throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
 					}					
@@ -1698,6 +1742,12 @@ if ($method == "GET") {
 			"studentGenders" => _studentGender($period,$conn),
 			"teacherGenders" => _teacherGender($period,$conn),
 			"studentByPeriod" => _studentByPeriod($period,$conn),
+			"studentByTurn" => _studentsByTurn($period,$conn),
+			"studentRelTotal" => _studentRelTotal($period,$conn),
+			"sectionByTurn" => _sectionsByPeriodAndTurno($period,$conn),
+			"teacherByQualification" => _teacherByQualification($conn),
+			"teacherByDegree" => _teacherByDegree($conn),
+
 		);
 
 		echo json_encode($obj); 
@@ -1717,6 +1767,21 @@ if ($method == "GET") {
     echo json_encode($obj); 
 }
     
+
+	
+if(isset($_GET['getStudentsByPeriod'])){
+	$obj = array();
+	$consulta = "SELECT * FROM user_history";
+	$resultado = mysqli_query($conn, $consulta);
+		
+	if ($resultado && mysqli_num_rows($resultado) > 0) {
+		while($row = mysqli_fetch_assoc($resultado)) {      
+			$obj[]=array('action'=>$row['action'],'date'=>$row['date']);
+		}   
+	}
+echo json_encode($obj); 
+}
+
 
 
 
@@ -1792,37 +1857,282 @@ function _teacherGender($period,$conn){
 }
 
 
-function _studentByPeriod($period,$conn){
 
-	$studentsByPeriod = [];
+function _studentByPeriod($period, $conn) {
+    $studentsByPeriod = [];
 
+    if ($period === 'all') {
+        $studentsByPeriodQuery = "SELECT period, COUNT(*) AS total_entries FROM registration GROUP BY period;";
+    } else {
+        $studentsByPeriodQuery = "SELECT period, COUNT(*) AS total_entries FROM registration WHERE period = '{$period}' GROUP BY period;";
+    }
+
+    $result = mysqli_query($conn, $studentsByPeriodQuery);
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $studentsByPeriod[] = array(
+                'period' => $row['period'],
+                'total_entries' => $row['total_entries'],
+            );
+        }
+    }
+
+    if (empty($studentsByPeriod)) {
+        $studentsByPeriod = [
+            array('period' => '-', 'total_entries' => '0'),
+        ];
+    }
+
+    return $studentsByPeriod;
+}
+
+
+
+
+function _teacherByQualification($conn) {
+    $teacherByQualification = [];
+
+    $query = "SELECT qualification, COUNT(*) AS number_of_teachers FROM teacher GROUP BY qualification";
+
+    $result = mysqli_query($conn, $query);
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $teacherByQualification[] = array(
+                'qualification' => $row['qualification'],
+                'number_of_teachers' => $row['number_of_teachers'],
+            );
+        }
+        mysqli_free_result($result); // Liberar el resultado después de usarlo
+    } else {
+        error_log('Query failed: ' . mysqli_error($conn)); // Loguear el error para depuración
+    }
+
+    if (empty($teacherByQualification)) {
+        $teacherByQualification = [
+            array('qualification' => '-', 'number_of_teachers' => '0'),
+        ];
+    }
+
+    return $teacherByQualification;
+}
+
+
+function _teacherByDegree($conn) {
+    $teacherByDegree = [];
+
+    $query = "SELECT COALESCE(degree, second_degree) AS combined_degree, COUNT(*) AS number_of_teachers FROM teacher GROUP BY combined_degree;";
+
+    $result = mysqli_query($conn, $query);
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $teacherByDegree[] = array(
+                'combined_degree' => $row['combined_degree'],
+                'number_of_teachers' => $row['number_of_teachers'],
+            );
+        }
+        mysqli_free_result($result); // Liberar el resultado después de usarlo
+    } else {
+        error_log('Query failed: ' . mysqli_error($conn)); // Loguear el error para depuración
+    }
+
+    if (empty($teacherByDegree)) {
+        $teacherByDegree = [
+            array('combined_degree' => '-', 'number_of_teachers' => '0'),
+        ];
+    }
+
+    return $teacherByDegree;
+}
+
+
+
+function _studentsByTurn($period, $conn) {
+    $studentsByTurn = [];
+
+    $timeCondition = "(STR_TO_DATE(w.start_hour, '%h:%i %p') < STR_TO_DATE('12:15 PM', '%h:%i %p') OR STR_TO_DATE(w.end_hour, '%h:%i %p') < STR_TO_DATE('12:15 PM', '%h:%i %p'))
+                      OR (STR_TO_DATE(w.start_hour, '%h:%i %p') >= STR_TO_DATE('01:00 PM', '%h:%i %p') OR STR_TO_DATE(w.end_hour, '%h:%i %p') >= STR_TO_DATE('01:00 PM', '%h:%i %p'))";
+
+    if ($period === 'all') {
+        $studentsByTurnQuery = "
+            SELECT 
+                CASE
+                    WHEN (STR_TO_DATE(w.start_hour, '%h:%i %p') < STR_TO_DATE('12:15 PM', '%h:%i %p') OR STR_TO_DATE(w.end_hour, '%h:%i %p') < STR_TO_DATE('12:15 PM', '%h:%i %p'))
+                        THEN 'Mañana'
+                    WHEN (STR_TO_DATE(w.start_hour, '%h:%i %p') >= STR_TO_DATE('01:00 PM', '%h:%i %p') OR STR_TO_DATE(w.end_hour, '%h:%i %p') >= STR_TO_DATE('01:00 PM', '%h:%i %p'))
+                        THEN 'Tarde'
+                    ELSE 'Otro'
+                END AS turno,
+                COUNT(DISTINCT r.student_id) AS total_estudiantes
+            FROM 
+                registration r
+            JOIN 
+                section s ON r.section_id = s.id
+            JOIN 
+                work_charge w ON s.id = w.section_id
+            GROUP BY 
+                turno
+            ORDER BY 
+                turno;
+        ";
+    } else {
+        $studentsByTurnQuery = "
+            SELECT 
+                CASE
+                    WHEN (STR_TO_DATE(w.start_hour, '%h:%i %p') < STR_TO_DATE('12:15 PM', '%h:%i %p') OR STR_TO_DATE(w.end_hour, '%h:%i %p') < STR_TO_DATE('12:15 PM', '%h:%i %p'))
+                        THEN 'Mañana'
+                    WHEN (STR_TO_DATE(w.start_hour, '%h:%i %p') >= STR_TO_DATE('01:00 PM', '%h:%i %p') OR STR_TO_DATE(w.end_hour, '%h:%i %p') >= STR_TO_DATE('01:00 PM', '%h:%i %p'))
+                        THEN 'Tarde'
+                    ELSE 'Otro'
+                END AS turno,
+                COUNT(DISTINCT r.student_id) AS total_estudiantes
+            FROM 
+                registration r
+            JOIN 
+                section s ON r.section_id = s.id
+            JOIN 
+                work_charge w ON s.id = w.section_id
+            WHERE 
+                s.period = '{$period}'
+            GROUP BY 
+                turno
+            ORDER BY 
+                turno;
+        ";
+    }
+
+    $result = mysqli_query($conn, $studentsByTurnQuery);
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $studentsByTurn[] = array(
+                'turno' => $row['turno'],
+                'total_estudiantes' => $row['total_estudiantes'],
+            );
+        }
+    }
+
+    if (empty($studentsByTurn)) {
+        $studentsByTurn = [
+            array('turno' => '-', 'total_estudiantes' => '0'),
+        ];
+    }
+
+    return $studentsByTurn;
+}
+
+
+
+
+function _sectionsByPeriodAndTurno($period, $conn) {
+    $sectionsByPeriodAndTurno = [];
+
+    $timeCondition = "(STR_TO_DATE(w.start_hour, '%h:%i %p') < STR_TO_DATE('12:15 PM', '%h:%i %p') OR STR_TO_DATE(w.end_hour, '%h:%i %p') < STR_TO_DATE('12:15 PM', '%h:%i %p'))
+                      OR (STR_TO_DATE(w.start_hour, '%h:%i %p') >= STR_TO_DATE('01:00 PM', '%h:%i %p') OR STR_TO_DATE(w.end_hour, '%h:%i %p') >= STR_TO_DATE('01:00 PM', '%h:%i %p'))";
+
+    if ($period === 'all') {
+        $sectionsByPeriodAndTurnoQuery = "
+            SELECT 
+                s.period,
+                CASE
+                    WHEN (STR_TO_DATE(w.start_hour, '%h:%i %p') < STR_TO_DATE('12:15 PM', '%h:%i %p') OR STR_TO_DATE(w.end_hour, '%h:%i %p') < STR_TO_DATE('12:15 PM', '%h:%i %p'))
+                        THEN 'Mañana'
+                    WHEN (STR_TO_DATE(w.start_hour, '%h:%i %p') >= STR_TO_DATE('01:00 PM', '%h:%i %p') OR STR_TO_DATE(w.end_hour, '%h:%i %p') >= STR_TO_DATE('01:00 PM', '%h:%i %p'))
+                        THEN 'Tarde'
+                    ELSE 'Otro'
+                END AS turno,
+                COUNT(DISTINCT s.id) AS total_secciones
+            FROM 
+                section s
+            JOIN 
+                work_charge w ON s.id = w.section_id
+            GROUP BY 
+                s.period, turno
+            ORDER BY 
+                s.period, turno;
+        ";
+    } else {
+        $sectionsByPeriodAndTurnoQuery = "
+            SELECT 
+                s.period,
+                CASE
+                    WHEN (STR_TO_DATE(w.start_hour, '%h:%i %p') < STR_TO_DATE('12:15 PM', '%h:%i %p') OR STR_TO_DATE(w.end_hour, '%h:%i %p') < STR_TO_DATE('12:15 PM', '%h:%i %p'))
+                        THEN 'Mañana'
+                    WHEN (STR_TO_DATE(w.start_hour, '%h:%i %p') >= STR_TO_DATE('01:00 PM', '%h:%i %p') OR STR_TO_DATE(w.end_hour, '%h:%i %p') >= STR_TO_DATE('01:00 PM', '%h:%i %p'))
+                        THEN 'Tarde'
+                    ELSE 'Otro'
+                END AS turno,
+                COUNT(DISTINCT s.id) AS total_secciones
+            FROM 
+                section s
+            JOIN 
+                work_charge w ON s.id = w.section_id
+            WHERE 
+                s.period = '{$period}'
+            GROUP BY 
+                s.period, turno
+            ORDER BY 
+                s.period, turno;
+        ";
+    }
+
+    $result = mysqli_query($conn, $sectionsByPeriodAndTurnoQuery);
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $sectionsByPeriodAndTurno[] = array(
+                'period' => $row['period'],
+                'turno' => $row['turno'],
+                'total_secciones' => $row['total_secciones'],
+            );
+        }
+    }
+
+    if (empty($sectionsByPeriodAndTurno)) {
+        $sectionsByPeriodAndTurno = [
+            array('period' => '-', 'turno' => '-', 'total_secciones' => '0'),
+        ];
+    }
+
+    return $sectionsByPeriodAndTurno;
+}
+
+
+
+
+function _studentRelTotal($period,$conn) {
+
+    $studentRelTotal = [];
 
 	if ($period === 'all') {
-		$studentsByPeriodQuery = "SELECT period, COUNT(*) AS total_entries FROM registration GROUP BY period;";
-	} else{
-		$studentsByPeriodQuery = "SELECT period, COUNT(*) AS total_entries FROM registration where period = '{$period}' GROUP BY period;";
-	}
+		$query = "SELECT student_rel, COUNT(student_rel) as total FROM `registration` GROUP by student_rel";
+    } else {
+		$query = "SELECT student_rel, COUNT(student_rel) as total FROM `registration` WHERE period='$period' GROUP by student_rel";
+    }
 
+    $result = mysqli_query($conn, $query);
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $studentRelTotal[] = array(
+                'student_rel' => $row['student_rel'],
+                'total' => $row['total'],
+            );
+        }
+        mysqli_free_result($result); // Liberar el resultado después de usarlo
+    } else {
+        error_log('Query failed: ' . mysqli_error($conn)); // Loguear el error para depuración
+    }
 
-	$result = mysqli_query($conn, $studentsByPeriodQuery);
-	if ($result) {			
-		while($row = mysqli_fetch_assoc($result)) {
-				$studentsByPeriod[] = array(
-					'period' => $row['period'],
-					'total_entries' => $row['total_entries'],
-				);
-		}
-	}
+    if (empty($studentRelTotal)) {
+        $studentRelTotal = [
+            array('student_rel' => '-', 'total' => '0'),
+        ];
+    }
 
-	if(empty($studentsByPeriod)){
-		$studentsByPeriod = [
-			array('period' => '-', 'total_teachers' => '0'),
-		];	
-	}
-
-	return $studentsByPeriod;
-
+    return $studentRelTotal;
 }
+
+
+
+
+
 
 
 
