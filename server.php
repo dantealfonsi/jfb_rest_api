@@ -886,6 +886,7 @@ if ($method == "POST") {
 			echo json_encode($response);
 		}
 
+		
 		if (isset($data['editSection'])) {
 
 			$message = 'Editado';
@@ -919,28 +920,34 @@ if ($method == "POST") {
 		
 
 
-			if (isset($data['disableRegistration'])) {
-				$message = 'anulado';
+		if (isset($data['disableRegistration'])) {
 
-				$student_id = mysqli_real_escape_string($conn, $data['student_id']);
+			$message = 'Editado';
+
+				// Escapa los valores para evitar inyección de SQL
 				$section_id = mysqli_real_escape_string($conn, $data['section_id']);
-
-				$query = "DELETE FROM registration WHERE section_id = '$section_id' AND student_id = '$student_id'";
+				$student_id = mysqli_real_escape_string($conn, $data['person_id']);
+				$registration_id = mysqli_real_escape_string($conn, $data['registration_id']);
+				
+				// ...otros campos    
+				$query = "DELETE FROM registration WHERE student_id='$student_id' AND section_id='$section_id' AND id='$registration_id'";
 				$result = mysqli_query($conn, $query);
 
 				// Historial
-				$historyName = returnPersonName($data['history']['person_id']);
+				$historyName= returnPersonName($data['history']['person_id']);
 				$texto = returnPersonName($data['history']['person_id'])." ha anulado una inscripción";
 				$historyResponse = addToHistory($data['history']['user'], $texto);
-				// Fin Historial
+				//Fin Historial
 
 				if (!$result) {
-					$message = 'Error: ' . mysqli_error($conn);
+					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+					$message = 'Error';
 				}
 
-				$response = array('message' => $message);
-				echo json_encode($response);
-			}
+			$response = array('message' => $message);
+			echo json_encode($response);
+		}
+		
 
 
 		if (isset($data['addSubjectToRoutine'])) {
@@ -1575,6 +1582,7 @@ if(isset($_GET['section_student_list'])){
                 $obj[] = array(
                     'id' => $row['id'],
                     'name' => $person_data['name'],
+					'person_id' => $person_data['id'],
                     'last_name' => $person_data['last_name'],
                     'cedula' => $person_data['cedula']
                 );
