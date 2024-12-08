@@ -180,6 +180,22 @@ function returnPersonId_student($id) {
 
 
 
+function returnSectionNamesByTeacher($teacher_id, $period) {
+    $obj = array();
+    $query = "SELECT CONCAT(s.year, ' año ', s.section_name) AS section_info
+              FROM section s
+              WHERE s.teacher_id = '$teacher_id'
+              AND s.period = '$period'";
+    $resultado = mysqli_query($GLOBALS['conn'], $query);
+
+    if ($resultado && mysqli_num_rows($resultado) > 0) {
+        while ($row = mysqli_fetch_assoc($resultado)) {
+            $obj[] = $row['section_info'];
+        }
+    }
+    return $obj;
+}
+
 
 function returnListSection($period){
 	$obj = array();
@@ -1026,7 +1042,6 @@ if ($method == "POST") {
 
 				// Escapa los valores para evitar inyección de SQL
 				$name = mysqli_real_escape_string($conn, strtolower($data['subject']['name']));
-				$grupo_estable= mysqli_real_escape_string($conn, strtolower($data['subject']['grupo_estable']));
 				// ...otros campos    
 
 
@@ -1034,7 +1049,7 @@ if ($method == "POST") {
 					$message ='Cuidado: Esta materia ya existe';
 					$icon = 'warning';					
 				} else{
-					$query = "INSERT INTO subject (name,grupo_estable) VALUES ('$name',$grupo_estable)";
+					$query = "INSERT INTO subject (name) VALUES ('$name')";
 					$result = mysqli_query($conn, $query);
 
 					// Historial
@@ -1064,10 +1079,9 @@ if ($method == "POST") {
 				
 				$id = mysqli_real_escape_string($conn, $data['subject']['id']);
 				$name = mysqli_real_escape_string($conn, strtolower($data['subject']['name']));
-				$grupo_estable = mysqli_real_escape_string($conn, strtolower($data['subject']['grupo_estable']));
 				// ...otros campos    
 
-					$query = "UPDATE subject SET name='$name', grupo_estable=$grupo_estable WHERE id=$id";
+					$query = "UPDATE subject SET name='$name' WHERE id=$id";
 					$result = mysqli_query($conn, $query);
 
 					// Historial
@@ -1509,7 +1523,7 @@ if ($method == "GET") {
 		$resultado = mysqli_query($conn, $consulta);
 		if ($resultado && mysqli_num_rows($resultado) > 0) {
 			while($row = mysqli_fetch_assoc($resultado)) {      
-				$obj[]=array('id'=>$row['id'],'name'=>$row['name'],'grupo_estable'=>$row['grupo_estable']);
+				$obj[]=array('id'=>$row['id'],'name'=>$row['name']);
 			} 
 		}
 		echo json_encode($obj);   
@@ -1781,6 +1795,34 @@ if(isset($_GET['getStudentsByPeriod'])){
 	}
 echo json_encode($obj); 
 }
+
+
+if (isset($_GET['section_teacher'])) {
+    $period = $_GET['period']; // En el link get debe venir el periodo
+
+    $consulta = "SELECT DISTINCT p.id, CONCAT(p.name, ' ', p.last_name) AS full_name, p.cedula 
+                 FROM section s 
+                 JOIN person p ON s.teacher_id = p.id 
+                 WHERE s.period='$period'";
+
+    $obj = array();
+    $resultado = mysqli_query($conn, $consulta);
+
+    if ($resultado && mysqli_num_rows($resultado) > 0) {
+        while ($row = mysqli_fetch_assoc($resultado)) {
+            $sections = returnSectionNamesByTeacher($row['id'], $period);
+            $obj[] = array(
+                'full_name' => $row['full_name'],
+                'cedula' => $row['cedula'],
+                'sections' => $sections
+            );
+        }
+    }
+
+    echo json_encode($obj);
+}
+
+
 
 
 
@@ -2140,3 +2182,6 @@ function _studentRelTotal($period,$conn) {
 
 
 ?>
+
+
+
