@@ -173,7 +173,7 @@ function returnDatPersonByStudentId($person_id) {
 }
 
 function returnPersonId_student($id) {
-    $resultado = mysqli_query($GLOBALS['conn'], "SELECT person_id FROM student WHERE id = $id");
+    $resultado = mysqli_query($GLOBALS['conn'], "SELECT person_id FROM student WHERE person_id = $id");
 
 	return $resultado;	
 }
@@ -916,6 +916,31 @@ if ($method == "POST") {
 			$response = array('message' => $message);
 			echo json_encode($response);
 		}
+		
+
+
+			if (isset($data['disableRegistration'])) {
+				$message = 'anulado';
+
+				$student_id = mysqli_real_escape_string($conn, $data['student_id']);
+				$section_id = mysqli_real_escape_string($conn, $data['section_id']);
+
+				$query = "DELETE FROM registration WHERE section_id = '$section_id' AND student_id = '$student_id'";
+				$result = mysqli_query($conn, $query);
+
+				// Historial
+				$historyName = returnPersonName($data['history']['person_id']);
+				$texto = returnPersonName($data['history']['person_id'])." ha anulado una inscripción";
+				$historyResponse = addToHistory($data['history']['user'], $texto);
+				// Fin Historial
+
+				if (!$result) {
+					$message = 'Error: ' . mysqli_error($conn);
+				}
+
+				$response = array('message' => $message);
+				echo json_encode($response);
+			}
 
 
 		if (isset($data['addSubjectToRoutine'])) {
@@ -1529,29 +1554,46 @@ if ($method == "GET") {
 		echo json_encode($obj);   
 	}
 
-	if(isset($_GET['section_student_list'])){
-		
-		$section_id = $_GET['id']; 
-		$obj = array();
-		$consulta = "SELECT * FROM registration where section_id = $section_id ";
-		$resultado = mysqli_query($conn, $consulta);
-		if ($resultado && mysqli_num_rows($resultado) > 0) {
-			while($row = mysqli_fetch_assoc($resultado)) {
-				$person_id_result = returnPersonId_student($row['student_id']);
-				if ($person_id_result && mysqli_num_rows($person_id_result) > 0) {
-					$person_id_row = mysqli_fetch_assoc($person_id_result);
-					$person_data = returnDatPersonByStudentId($person_id_row['person_id']);
-					$obj[] = array(
-						'id' => $row['id'],
-						'name' => $person_data['name'],
-						'last_name' => $person_data['last_name'],
-						'cedula' => $person_data['cedula']
-					);
-				}
-			} 
-		}
-		echo json_encode($obj);   
-	}
+if(isset($_GET['section_student_list'])){
+    
+    $section_id = $_GET['id']; 
+    $obj = array();
+    $consulta = "SELECT * FROM registration WHERE section_id = $section_id";
+    $resultado = mysqli_query($conn, $consulta);
+
+    if (mysqli_num_rows($resultado) > 0) {
+        while($row = mysqli_fetch_assoc($resultado)) {
+            
+			$person_id_result = returnPersonId_student($row['student_id']);
+
+            if (mysqli_num_rows($person_id_result) > 0) {
+
+                $person_id_row = mysqli_fetch_assoc($person_id_result);
+
+                $person_data = returnDatPersonByStudentId($person_id_row['person_id']);
+				
+                $obj[] = array(
+                    'id' => $row['id'],
+                    'name' => $person_data['name'],
+                    'last_name' => $person_data['last_name'],
+                    'cedula' => $person_data['cedula']
+                );
+            } else {
+                // Mensaje de depuración
+                error_log('No se encontró el person_id para student_id: ' . $row['student_id']);
+            }
+        }
+    } else {
+        // Mensaje de depuración
+        error_log('No se encontraron registros en registration para section_id: ' . $section_id);
+    }
+    
+    // Ver la cantidad de entradas en el array obj
+    error_log('Total de entradas en obj: ' . count($obj));
+    
+    echo json_encode($obj);
+}
+
 	
 
 	
