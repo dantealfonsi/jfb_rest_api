@@ -921,32 +921,33 @@ if ($method == "POST") {
 
 
 		if (isset($data['disableRegistration'])) {
-
 			$message = 'Editado';
-
-				// Escapa los valores para evitar inyección de SQL
-				$section_id = mysqli_real_escape_string($conn, $data['section_id']);
-				$student_id = mysqli_real_escape_string($conn, $data['person_id']);
-				$registration_id = mysqli_real_escape_string($conn, $data['registration_id']);
-				
-				// ...otros campos    
-				$query = "DELETE FROM registration WHERE student_id='$student_id' AND section_id='$section_id' AND id='$registration_id'";
-				$result = mysqli_query($conn, $query);
-
-				// Historial
-				$historyName= returnPersonName($data['history']['person_id']);
-				$texto = returnPersonName($data['history']['person_id'])." ha anulado una inscripción";
-				$historyResponse = addToHistory($data['history']['user'], $texto);
-				//Fin Historial
-
-				if (!$result) {
-					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
-					$message = 'Error';
-				}
-
+		
+			// Escapa los valores para evitar inyección de SQL
+			$section_id = mysqli_real_escape_string($conn, $data['section_id']);
+			$student_id = mysqli_real_escape_string($conn, $data['person_id']);
+			$registration_id = mysqli_real_escape_string($conn, $data['registration_id']);
+			
+			// ...otros campos    
+			$query = "DELETE FROM registration WHERE student_id='$student_id' AND section_id='$section_id' AND id='$registration_id'";
+			$result = mysqli_query($conn, $query);
+		
+			// Historial
+			$historyName = returnPersonName($data['history']['person_id']);
+			$texto = returnPersonName($data['history']['person_id']) . " ha anulado una inscripción";
+			$historyResponse = addToHistory($data['history']['user'], $texto);
+			// Fin Historial
+		
+			if (!$result) {
+				$message = 'Error en la consulta SQL: ' . mysqli_error($conn);
+			} else {
+				$message = 'anulado';
+			}
+		
 			$response = array('message' => $message);
 			echo json_encode($response);
 		}
+		
 		
 
 
