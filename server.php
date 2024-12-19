@@ -1102,6 +1102,41 @@ if ($method == "POST") {
 				echo json_encode($response);
 		}
 
+		if (isset($data['addNestedSubject'])) {
+
+			$subjectExist = false;
+			$message = '';
+			$icon = '';
+
+				// Escapa los valores para evitar inyección de SQL
+				$name = mysqli_real_escape_string($conn, strtolower($data['subject']['name']));
+				// ...otros campos    
+
+
+				if (ifSubjectExists($name) == true) {
+					$message ='Cuidado: Esta materia ya existe';
+					$icon = 'warning';					
+				} else{
+					$query = "INSERT INTO subject (name,grupo_estable) VALUES ('$name', 1)";
+					$result = mysqli_query($conn, $query);
+
+					// Historial
+					$historyName= returnPersonName($data['history']['person_id']);
+					$texto = returnPersonName($data['history']['person_id'])." ha añadido una materia";
+					$historyResponse = addToHistory($data['history']['user'], $texto);
+					//Fin Historial
+
+					if (!$result) {
+						throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+						$message = 'Error';
+					}
+					$message ='Materia añadida con exito';
+					$icon = 'success';
+				}
+				$response = array('message' => $message,'icon'=>$icon);
+				echo json_encode($response);
+		}
+
 		if (isset($data['editSubject'])) {
 
 			$subjectExist = false;
@@ -1552,7 +1587,19 @@ if ($method == "GET") {
 
 	if(isset($_GET['subject_list'])){
 		$obj = array();
-		$consulta = "SELECT * FROM subject WHERE isDeleted=0";
+		$consulta = "SELECT * FROM subject WHERE grupo_estable=0 AND isDeleted=0";
+		$resultado = mysqli_query($conn, $consulta);
+		if ($resultado && mysqli_num_rows($resultado) > 0) {
+			while($row = mysqli_fetch_assoc($resultado)) {      
+				$obj[]=array('id'=>$row['id'],'name'=>$row['name']);
+			} 
+		}
+		echo json_encode($obj);   
+	}
+
+	if(isset($_GET['nested_subject_list'])){
+		$obj = array();
+		$consulta = "SELECT * FROM subject WHERE grupo_estable=1 AND isDeleted=0";
 		$resultado = mysqli_query($conn, $consulta);
 		if ($resultado && mysqli_num_rows($resultado) > 0) {
 			while($row = mysqli_fetch_assoc($resultado)) {      
