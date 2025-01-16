@@ -536,9 +536,7 @@ if ($method == "POST") {
 			echo json_encode($response);
 			exit();
 		}
-		
-
-		
+				
 
 		if(isset($data['updateBlock'])){ 
 			// Actualiza según un campo con su valor y la tabla requerida
@@ -1782,29 +1780,33 @@ if(isset($_GET['section_student_list'])){
 		}
 	}
 
-	if(isset($_GET['routine_list_teacher'])){
+	if(isset($_GET['routine_list_teacher'])) {
 
 		$period = currentPeriod()['current_period'];
 		$teacher_id = $_GET['teacher_id'];
 		$obj = array();
-		$consulta = "SELECT * FROM work_charge where teacher_id = '$teacher_id'";
+		$consulta = "SELECT * FROM work_charge where teacher_id = '$teacher_id' AND period='$period'";
 		$resultado = mysqli_query($conn, $consulta);
 		while($row = mysqli_fetch_assoc($resultado)) {
+			$subject_data = row_sqlconector("select name from subject where id={$row['subject_id']}");
+			$section_data = row_sqlconector("select CONCAT(year, ' ', section_name) AS seccion from section where id={$row['section_id']} and period='$period'");
+	
 			$obj[] = array(
 				'day' => $row['day'],
 				'start_hour' => $row['start_hour'],
 				'end_hour' => $row['end_hour'],
-				'subject' => row_sqlconector("select name from subject where id={$row['subject_id']} and isDeleted=0")['name'],
-				'section' => row_sqlconector("select CONCAT(year, ' ', section_name) AS seccion from section where id={$row['section_id']} and period='$period'")['seccion']
+				'subject' => $subject_data['name'], 
+				'section' => $section_data['seccion'] ?? null
 			);
 		}
 		echo json_encode($obj); 
+	
 		// Agrega esto para depurar
 		if (json_last_error() !== JSON_ERROR_NONE) {
 			echo 'Error en la codificación JSON: ' . json_last_error_msg();
 		}
 	}
-
+	
 	if (isset($_GET['stadistic'])) {
 		$periodData = currentPeriod();
 		$period = $periodData['current_period'];
