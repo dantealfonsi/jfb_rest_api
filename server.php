@@ -393,7 +393,13 @@ if ($method == "POST") {
 			// Obtener el periodo actual
 			$periodQuery = "SELECT * FROM period WHERE isOpen=1";
 			$periodResult = mysqli_query($conn, $periodQuery);
+			
 			$period = mysqli_fetch_array($periodResult);
+			$exist_current_period = false; // Valor por defecto si no se encuentra un período abierto
+		
+			if ($period) {
+				$exist_current_period = true;
+			}
 		
 			$response = array(
 				'exists' => $userExist,
@@ -402,15 +408,17 @@ if ($method == "POST") {
 				'person_id' => $person_id,
 				'isAdmin' => $isAdmin,
 				'period' => array(
-					'start_current_period' => $period['start_date'],
-					'end_current_period' => $period['end_date']
+					'start_current_period' => $period ? $period['start_date'] : null,
+					'end_current_period' => $period ? $period['end_date'] : null,
+					'exist_current_period' => $exist_current_period,
 				)
 			);
 		
 			echo json_encode($response);
 		}
 		
-
+		
+/* OLD PERIOD DATA
 		if(isset($data['SendPeriodData'])){
 			$start_date = mysqli_real_escape_string($conn, $data['sinceDate']);
 			$end_date = mysqli_real_escape_string($conn, $data['toDate']);
@@ -450,6 +458,55 @@ if ($method == "POST") {
 						throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
 					}
 			
+					$response = array('message' => 'ok');
+					echo json_encode($response);
+				}
+			} else {
+				$response = array('message' => 'Las fechas del periodo deben estar entre el año anterior y el actual, o entre el actual y el siguiente');
+				echo json_encode($response);
+			}
+		}
+		*/
+
+		if(isset($data['SendPeriodData'])){
+			$start_date = mysqli_real_escape_string($conn, $data['sinceDate']);
+			$end_date = mysqli_real_escape_string($conn, $data['toDate']);
+			$name = mysqli_real_escape_string($conn, $data['name']);
+			
+			// Calcular max_date como un mes más que end_date
+			$max_date = date('Y-m-d', strtotime($end_date . ' +1 month'));
+		
+			$Q_time_period = mysqli_query($conn, "SELECT YEAR(NOW()) AS actual, YEAR(NOW() - INTERVAL 1 YEAR) AS anterior, YEAR(NOW() + INTERVAL 1 YEAR) AS siguiente");
+			$row_time_period = mysqli_fetch_assoc($Q_time_period);
+			$year_anterior = $row_time_period['anterior'];
+			$year_actual = $row_time_period['actual'];
+			$year_siguiente = $row_time_period['siguiente'];
+		
+			if((strtotime($start_date) >= strtotime("$year_anterior-01-01") && strtotime($end_date) <= strtotime("$year_actual-12-31")) ||
+			   (strtotime($start_date) >= strtotime("$year_actual-01-01") && strtotime($end_date) <= strtotime("$year_siguiente-12-31"))) {
+				
+				if(ifPeriodExist($name, $start_date, $end_date)) {
+					$response = array('message' => 'Ya existe un periodo en este rango de tiempo o el nombre ya está en uso');
+					echo json_encode($response);
+				} else {
+					// Actualizamos el último periodo agregado para cerrar (isOpen = 0)
+					$Q_last_period = mysqli_query($conn, "SELECT * FROM period ORDER BY end_date DESC LIMIT 1");
+					$row_last_period = mysqli_fetch_assoc($Q_last_period);
+					$last_period = $row_last_period['name'];
+					
+					if($row_last_period) {
+						$last_period_id = $row_last_period['id'];
+						mysqli_query($conn, "UPDATE period SET isOpen = 0 WHERE id = '$last_period_id'");
+					}
+		
+					$query = "INSERT INTO period (start_date, end_date, name, max_date, isClosed) VALUES ('$start_date', '$end_date', '$name', '$max_date', 0)";
+					$result = mysqli_query($conn, $query);
+		
+					if (!$result) {
+						// Error en la consulta
+						throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+					}
+		
 					$response = array('message' => 'ok');
 					echo json_encode($response);
 				}
@@ -1213,87 +1270,91 @@ if ($method == "POST") {
 		if (isset($data['addUser'])) { /** AGREGA NUEVOS USUARIOS DEL SISTEMA **/
 			$message = 'Insert is Null in Inscribe';
 			$icon = 'error';
-
+		  
 			function insertPerson($conn, $data) {
-				// Escapa los valores para evitar inyección de SQL
-				$nationality = mysqli_real_escape_string($conn, $data['nationality']);
-				$cedula = mysqli_real_escape_string($conn, $data['cedula']);
-				$name = mysqli_real_escape_string($conn, strtolower($data['name']));
-				$second_name = mysqli_real_escape_string($conn, strtolower($data['second_name']));
-				$last_name = mysqli_real_escape_string($conn, strtolower($data['last_name']));
-				$second_last_name = mysqli_real_escape_string($conn, strtolower($data['second_last_name']));
-				$email = mysqli_real_escape_string($conn, strtolower($data['email']));
-				$phone = mysqli_real_escape_string($conn, $data['phone']);
-				$birthday = mysqli_real_escape_string($conn, $data['birthday']);
-				$gender = mysqli_real_escape_string($conn, $data['gender']);
-				$address = mysqli_real_escape_string($conn, strtolower($data['address']));
-				
-				// ...otros campos
-
-				$query = "INSERT INTO person (nationality,cedula, name, second_name,last_name,second_last_name,email,phone,birthday,gender,address) VALUES ('$nationality','$cedula', '$name','$second_name','$last_name','$second_last_name','$email','$phone','$birthday','$gender','$address')";
-				$result = mysqli_query($conn, $query);
-
-				if (!$result) {
-					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
-				}
-
-				return mysqli_insert_id($conn);
+			  // Escapa los valores para evitar inyección de SQL
+			  $nationality = mysqli_real_escape_string($conn, $data['nationality']);
+			  $cedula = mysqli_real_escape_string($conn, $data['cedula']);
+			  $name = mysqli_real_escape_string($conn, strtolower($data['name']));
+			  $second_name = mysqli_real_escape_string($conn, strtolower($data['second_name']));
+			  $last_name = mysqli_real_escape_string($conn, strtolower($data['last_name']));
+			  $second_last_name = mysqli_real_escape_string($conn, strtolower($data['second_last_name']));
+			  $email = mysqli_real_escape_string($conn, strtolower($data['email']));
+			  $phone = mysqli_real_escape_string($conn, $data['phone']);
+			  $birthday = mysqli_real_escape_string($conn, $data['birthday']);
+			  $gender = mysqli_real_escape_string($conn, $data['gender']);
+			  $address = mysqli_real_escape_string($conn, strtolower($data['address']));
+			  
+			  // ...otros campos
+		  
+			  $query = "INSERT INTO person (nationality,cedula, name, second_name,last_name,second_last_name,email,phone,birthday,gender,address) VALUES ('$nationality','$cedula', '$name','$second_name','$last_name','$second_last_name','$email','$phone','$birthday','$gender','$address')";
+			  $result = mysqli_query($conn, $query);
+		  
+			  if (!$result) {
+				throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+			  }
+		  
+			  return mysqli_insert_id($conn);
 			}
-
-
-			if (!ifPersonExist($data['person']['cedula'])) {
+		  
+			try {
+			  if (!ifPersonExist($data['person']['cedula'])) {
 				$endIdPerson = insertPerson($conn, $data['person']);
-
-					if (!ifUserExist($data['userData']['user_name'])) {
-						$hashContrasena = password_hash($data['userData']['password'], PASSWORD_BCRYPT);
-						$QinsertUser = "INSERT INTO user (person_id,user_name,password,isAdmin) VALUES ($endIdPerson,'".$data['userData']['user_name']."','".$hashContrasena."',".$data['userData']['isAdmin'].")";
-						$result = mysqli_query($conn, $QinsertUser);
-
-						// Historial
-						$historyName= returnPersonName($data['history']['person_id']);
-						$texto = returnPersonName($data['history']['person_id'])." ha añadido a un usuario";
-						$historyResponse = addToHistory($data['history']['user'], $texto);
-						//Fin Historial
-						if (!$result) {
-							throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
-						}												
-						$message = 'Usuario añadido con exito...';
-						$icon = 'success';
-					} else{
-						$message = 'Error: Este usuario ya existe';
-						$icon = 'error';
-					}
-				
-			}else{
+				if (!ifUserExist($data['userData']['user_name'])) {
+				  $hashContrasena = password_hash($data['userData']['password'], PASSWORD_BCRYPT);
+				  $QinsertUser = "INSERT INTO user (person_id,user_name,password,isAdmin) VALUES ($endIdPerson,'".$data['userData']['user_name']."','".$hashContrasena."',".$data['userData']['isAdmin'].")";
+				  $result = mysqli_query($conn, $QinsertUser);
+		  
+				  // Historial
+				  $historyName= returnPersonName($data['history']['person_id']);
+				  $texto = returnPersonName($data['history']['person_id'])." ha añadido a un usuario";
+				  $historyResponse = addToHistory($data['history']['user'], $texto);
+				  //Fin Historial
+		  
+				  if (!$result) {
+					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+				  }
+				  
+				  $message = 'Usuario añadido con exito...';
+				  $icon = 'success';
+				} else {
+				  $message = 'Error: Este usuario ya existe';
+				  $icon = 'error';
+				}
+			  } else {
 				$endIdPerson = returnIdParent($data['person']['cedula']);
 				if (!ifUserExist($data['userData']['user_name'])) {
-					$hashContrasena = password_hash($data['userData']['password'], PASSWORD_BCRYPT);					
-					$QinsertUser = "INSERT INTO user (person_id,user_name,password,isAdmin) VALUES ($endIdPerson,'".$data['userData']['user_name']."','".$hashContrasena."',".$data['userData']['isAdmin'].")";
-					$result = mysqli_query($conn, $QinsertUser);
-
-					
-					// Historial
-					$historyName= returnPersonName($data['history']['person_id']);
-					$texto = returnPersonName($data['history']['person_id'])." ha añadido a un usuario";
-					$historyResponse = addToHistory($data['history']['user'], $texto);
-					//Fin Historial
-
-					if (!$result) {
-						throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
-					}					
-					$message = 'Usuario añadido con exito...';
-					$icon = 'success';
-				} else{
-					$message ='Error: Este usuario ya existe';
-					$icon = 'error';
+				  $hashContrasena = password_hash($data['userData']['password'], PASSWORD_BCRYPT);
+				  $QinsertUser = "INSERT INTO user (person_id,user_name,password,isAdmin) VALUES ($endIdPerson,'".$data['userData']['user_name']."','".$hashContrasena."',".$data['userData']['isAdmin'].")";
+				  $result = mysqli_query($conn, $QinsertUser);
+		  
+				  // Historial
+				  $historyName= returnPersonName($data['history']['person_id']);
+				  $texto = returnPersonName($data['history']['person_id'])." ha añadido a un usuario";
+				  $historyResponse = addToHistory($data['history']['user'], $texto);
+				  //Fin Historial
+		  
+				  if (!$result) {
+					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+				  }
+				  
+				  $message = 'Usuario añadido con exito...';
+				  $icon = 'success';
+				} else {
+				  $message = 'Error: Este usuario ya existe';
+				  $icon = 'error';
 				}
+			  }
+			} catch (Exception $e) {
+			  http_response_code(500); // Retorna un código de error 500 al frontend
+			  $message = 'Error: ' . $e->getMessage();
+			  $icon = 'error';
 			}
-
-			
-
-			$response = array('message' => $message,'icon'=>$icon);
+		  
+			$response = array('message' => $message, 'icon' => $icon);
 			echo json_encode($response);
-		}
+		  }
+		  
 
 
 		if (isset($data['hola'])){
@@ -1395,6 +1456,7 @@ if ($method == "GET") {
 		echo date("YYYY-MM-DD"); ;
 	}
 
+
 	if(isset($_GET['current_period'])){
 		$time_period = "";
 		$exist_period = false;
@@ -1403,6 +1465,61 @@ if ($method == "GET") {
 		$current_period = "";
 		$isOpen = 1;
 		$last_period = "";
+		// Obtenemos los años
+		$Q_time_period = mysqli_query($conn, "SELECT YEAR(NOW()) AS actual, YEAR(NOW() - INTERVAL 1 YEAR) AS anterior, YEAR(NOW() + INTERVAL 1 YEAR) AS siguiente");
+		$row_time_period = mysqli_fetch_assoc($Q_time_period);
+		$time_period_candidate1 = $row_time_period['anterior']."-".$row_time_period['actual'];
+		$time_period_candidate2 = $row_time_period['actual']."-".$row_time_period['siguiente'];
+	
+		// Comprobamos si existe el periodo con cualquiera de los dos candidatos y que isOpen sea 1
+		$Q_exist1 = mysqli_query($conn, "SELECT 1 FROM period WHERE name = '$time_period_candidate1' AND isOpen = 1");
+		$Q_exist2 = mysqli_query($conn, "SELECT 1 FROM period WHERE name = '$time_period_candidate2' AND isOpen = 1");
+		$exist_period = mysqli_num_rows($Q_exist1) > 0 || mysqli_num_rows($Q_exist2) > 0;
+	
+		if($exist_period){
+			$current_date = date('Y-m-d');
+			$Q_current_period = mysqli_query($conn, "SELECT * FROM period WHERE isOpen = 1 ORDER BY end_date DESC LIMIT 1");
+			$row_current_period = mysqli_fetch_assoc($Q_current_period);
+	
+			if ($row_current_period) {
+				$start_current_period = $row_current_period['start_date'];
+				$end_current_period = $row_current_period['end_date'];
+				$current_period = $row_current_period['name'];
+				$isOpen = $row_current_period['isOpen'];
+				$time_period = $row_current_period['name'];
+				$max_date = $row_current_period['max_date'];
+				// Actualizamos el último periodo agregado para cerrar (isOpen = 0)
+				$Q_second_last_period = mysqli_query($conn, "SELECT * FROM period ORDER BY end_date DESC LIMIT 1 OFFSET 1");
+				$row_second_last_period = mysqli_fetch_assoc($Q_second_last_period);
+				$last_period = $row_second_last_period['name'];
+			}
+		}
+	
+		$obj = array(
+			'current_period' => $current_period,
+			'last_period' => $last_period,
+			'time_period' => $time_period,
+			'start_current_period' => $start_current_period,
+			'end_current_period' => $end_current_period,
+			'exist_period' => $exist_period,
+			'isOpen' => $isOpen,
+			'max_date' => $max_date
+		);
+		echo json_encode($obj);
+	}
+	
+
+/*
+	if(isset($_GET['current_period'])){
+		$time_period = "";
+		$exist_period = false;
+		$start_current_period = "";
+		$end_current_period = "";
+		$current_period = "";
+		$isOpen = 1;
+		$last_period = "";
+		$isDue = false;
+	
 		// Obtenemos los años
 		$Q_time_period = mysqli_query($conn, "SELECT YEAR(NOW()) AS actual, YEAR(NOW() - INTERVAL 1 YEAR) AS anterior, YEAR(NOW() + INTERVAL 1 YEAR) AS siguiente");
 		$row_time_period = mysqli_fetch_assoc($Q_time_period);
@@ -1424,13 +1541,19 @@ if ($method == "GET") {
 				$end_current_period = $row_current_period['end_date'];
 				$current_period = $row_current_period['name'];
 				$isOpen = $row_current_period['isOpen'];
+				$max_date = $row_current_period['max_date'];
 				$time_period = $row_current_period['name'];
-
+	
 				// Actualizamos el último periodo agregado para cerrar (isOpen = 0)
 				$Q_second_last_period = mysqli_query($conn, "SELECT * FROM period ORDER BY end_date DESC LIMIT 1 OFFSET 1");
 				$row_second_last_period = mysqli_fetch_assoc($Q_second_last_period);
 				$last_period = $row_second_last_period['name'];
-				
+	
+				// Verificar si la fecha actual es mayor que max_date
+				if($current_date > $max_date) {
+					$isDue = true;
+				}
+	
 			} else {
 				// Si no hay un periodo dentro de la fecha actual
 				$exist_period = false;
@@ -1441,12 +1564,6 @@ if ($method == "GET") {
 				$Q_last_period = mysqli_query($conn, "SELECT * FROM period ORDER BY end_date DESC LIMIT 1");
 				$row_last_period = mysqli_fetch_assoc($Q_last_period);
 				$last_period = $row_last_period['name'];
-
-				/*
-				if($row_last_period) {
-					$last_period_id = $row_last_period['id'];
-					mysqli_query($conn, "UPDATE period SET isOpen = 0 WHERE id = '$last_period_id'");
-				}*/
 			}
 		}
 	
@@ -1457,11 +1574,13 @@ if ($method == "GET") {
 			'start_current_period' => $start_current_period,
 			'end_current_period' => $end_current_period,
 			'exist_period' => $exist_period,
-			'isOpen' => $isOpen
+			'max_date' => $max_date,
+			'isOpen' => $isOpen,
+			'isDue' => $isDue
 		);
 		echo json_encode($obj);
 	}
-	
+	*/
 	
 
 	if(isset($_GET['person_list'])){
