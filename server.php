@@ -203,7 +203,7 @@ function returnListSection($period){
 	$resultado = mysqli_query($GLOBALS['conn'], $consulta);
 	if ($resultado && mysqli_num_rows($resultado) > 0) {
 		while($row = mysqli_fetch_assoc($resultado)) {
-			$obj[]=array('id'=>$row['id'],'year'=>$row['year'],'section_name'=>$row['section_name'],'teacher_id'=>returnDatPerson($row['teacher_id']),'quota'=>$row['quota'],'period'=>$row['period']);
+			$obj[]=array('id'=>$row['id'],'year'=>$row['year'],'section_name'=>$row['section_name'],'teacher_id'=>returnDatPerson($row['teacher_id']),'quota'=>$row['quota'],'classroom'=>$row['classroom'],'period'=>$row['period']);
 		}   			
 	}
 	return $obj;
@@ -216,7 +216,7 @@ function returnDatSection($id) {
     $resultado = mysqli_query($GLOBALS['conn'], "SELECT * FROM section WHERE id = $id");
     if ($resultado && mysqli_num_rows($resultado) > 0) {
         $row = mysqli_fetch_assoc($resultado);
-		$obj=array('id'=>$row['id'],'year'=>$row['year'],'section_name'=>$row['section_name'],'teacher_id'=>returnDatPerson($row['teacher_id']),'quota'=>$row['quota'],'period'=>$row['period']);
+		$obj=array('id'=>$row['id'],'year'=>$row['year'],'section_name'=>$row['section_name'],'teacher_id'=>returnDatPerson($row['teacher_id']),'quota'=>$row['quota'],'period'=>$row['period'],'classroom'=>$row['classroom']);
     }
 	return $obj;	
 }
@@ -681,6 +681,23 @@ if ($method == "POST") {
 			echo json_encode($response);
 		}
 
+		
+		if(isset($data['closePeriod'])){ /* Actualiza segun un campo con su valor y  la tabla requerida*/
+
+			$periodId = mysqli_real_escape_string($conn, $data['periodId']);
+			
+            $query = "UPDATE period SET isClosed = 1 WHERE id = $periodId";
+            $result = mysqli_query($conn, $query);
+            
+            if (!$result) {
+                // Error en la consulta
+                throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+            }
+			
+			$response = array("message" => "ok");
+			echo json_encode($response);
+		}
+
 
 
 		if(isset($data['dismiss'])){ /* Actualiza segun un campo con su valor y  la tabla requerida*/
@@ -920,10 +937,11 @@ if ($method == "POST") {
 				$SectionName = mysqli_real_escape_string($conn, $data['section']['SectionName']);
 				$quota = mysqli_real_escape_string($conn, $data['section']['quota']);
 				$person_id = mysqli_real_escape_string($conn, $data['section']['person_id']['id']);
+				$classroom = mysqli_real_escape_string($conn, $data['section']['classroom']);
 				$period = mysqli_real_escape_string($conn, $data['section']['period']);
 				
 				// ...otros campos    
-				$query = "INSERT INTO section (year,section_name,teacher_id,quota,period) VALUES ('$year','$SectionName',$person_id,$quota,'$period')";
+				$query = "INSERT INTO section (year,section_name,teacher_id,quota,period,classroom) VALUES ('$year','$SectionName',$person_id,$quota,'$period','$classroom')";
 				$result = mysqli_query($conn, $query);
 
 				// Historial
@@ -952,10 +970,11 @@ if ($method == "POST") {
 				$SectionName = mysqli_real_escape_string($conn, strtolower($data['section']['SectionName']));
 				$quota = mysqli_real_escape_string($conn, $data['section']['quota']);
 				$person_id = mysqli_real_escape_string($conn, $data['section']['person_id']['id']);
+				$classroom = mysqli_real_escape_string($conn, $data['section']['classroom']);
 				$period = mysqli_real_escape_string($conn, $data['section']['period']);
 				
 				// ...otros campos    
-				$query = "UPDATE section SET year='$year',section_name='$SectionName',teacher_id=$person_id,quota=$quota,period='$period' WHERE id=$id";
+				$query = "UPDATE section SET year='$year',section_name='$SectionName',teacher_id=$person_id,quota=$quota,period='$period',classroom='$classroom' WHERE id=$id";
 				$result = mysqli_query($conn, $query);
 
 				// Historial
@@ -1017,43 +1036,56 @@ if ($method == "POST") {
 			$start_hour = mysqli_real_escape_string($conn, strtolower($data['start']));
 			$end_hour = mysqli_real_escape_string($conn, strtolower($data['end']));
 			$period = mysqli_real_escape_string($conn, strtolower($data['period']));
+			$classroom = mysqli_real_escape_string($conn, strtolower($data['classroom']));
 			// ...otros campos
 		
-			// Verifica si ya existe una entrada con los mismos día, sección, hora de inicio y hora de cierre
-			$checkQuery = "SELECT * FROM work_charge WHERE day=$day AND section_id=$section_id AND start_hour='$start_hour' AND end_hour='$end_hour' AND period='$period'";
-			$checkResult = mysqli_query($conn, $checkQuery);
+			// Verifica si ya existe una entrada con los mismos día, aula, hora de inicio, hora de cierre y periodo
+			$checkClassroomQuery = "SELECT * FROM work_charge WHERE day=$day AND classroom='$classroom' AND start_hour='$start_hour' AND end_hour='$end_hour' AND period='$period'";
+			$checkClassroomResult = mysqli_query($conn, $checkClassroomQuery);
 		
-			if (mysqli_num_rows($checkResult) > 0) {
-				// Si existe, actualiza la materia
-				$updateQuery = "UPDATE work_charge SET subject_id=$subject_id WHERE day=$day AND section_id=$section_id AND start_hour='$start_hour' AND end_hour='$end_hour' AND period='$period'";
-				$updateResult = mysqli_query($conn, $updateQuery);
-		
-				if (!$updateResult) {
-					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
-					$message = 'Error al actualizar la materia';
-					$icon = 'error';
-				} else {
-					$message = 'Materia actualizada con éxito';
-					$icon = 'success';
-				}
+			if (mysqli_num_rows($checkClassroomResult) > 0) {
+				// Si existe, no se puede añadir una nueva materia en el mismo horario y aula
+				$message = 'Ya existe una materia en el mismo aula y horario';
+				$icon = 'error';
 			} else {
-				// Si no existe, inserta una nueva entrada
-				$insertQuery = "INSERT INTO work_charge (day, section_id, subject_id, start_hour, end_hour,period) VALUES ($day, $section_id, $subject_id, '$start_hour', '$end_hour', '$period')";
-				$insertResult = mysqli_query($conn, $insertQuery);
+				// Verifica si ya existe una entrada con los mismos día, sección, hora de inicio y hora de cierre
+				$checkQuery = "SELECT * FROM work_charge WHERE day=$day AND section_id=$section_id AND start_hour='$start_hour' AND end_hour='$end_hour' AND period='$period'";
+				$checkResult = mysqli_query($conn, $checkQuery);
 		
-				if (!$insertResult) {
-					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
-					$message = 'Error al añadir la materia';
-					$icon = 'error';
+				if (mysqli_num_rows($checkResult) > 0) {
+					// Si existe, actualiza la materia
+					$updateQuery = "UPDATE work_charge SET subject_id=$subject_id WHERE day=$day AND section_id=$section_id AND start_hour='$start_hour' AND end_hour='$end_hour' AND period='$period'";
+					$updateResult = mysqli_query($conn, $updateQuery);
+		
+					if (!$updateResult) {
+						throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+						$message = 'Error al actualizar la materia';
+						$icon = 'error';
+					} else {
+						$message = 'Materia actualizada con éxito';
+						$icon = 'success';
+					}
 				} else {
-					$message = 'Materia añadida con éxito';
-					$icon = 'success';
+					// Si no existe, inserta una nueva entrada
+					$insertQuery = "INSERT INTO work_charge (day, section_id, subject_id, start_hour, end_hour, period, classroom) VALUES ($day, $section_id, $subject_id, '$start_hour', '$end_hour', '$period', '$classroom')";
+					$insertResult = mysqli_query($conn, $insertQuery);
+		
+					if (!$insertResult) {
+						throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+						$message = 'Error al añadir la materia';
+						$icon = 'error';
+					} else {
+						$message = 'Materia añadida con éxito';
+						$icon = 'success';
+					}
 				}
 			}
 		
 			$response = array('message' => $message, 'icon' => $icon);
 			echo json_encode($response);
 		}
+		
+		
 
 
 		if (isset($data['addTeacherToRoutine'])) {
@@ -1465,6 +1497,9 @@ if ($method == "GET") {
 		$current_period = "";
 		$isOpen = 1;
 		$last_period = "";
+		$last_period_id = null;
+		$last_period_still_open = false;
+		
 		// Obtenemos los años
 		$Q_time_period = mysqli_query($conn, "SELECT YEAR(NOW()) AS actual, YEAR(NOW() - INTERVAL 1 YEAR) AS anterior, YEAR(NOW() + INTERVAL 1 YEAR) AS siguiente");
 		$row_time_period = mysqli_fetch_assoc($Q_time_period);
@@ -1488,25 +1523,34 @@ if ($method == "GET") {
 				$isOpen = $row_current_period['isOpen'];
 				$time_period = $row_current_period['name'];
 				$max_date = $row_current_period['max_date'];
-				// Actualizamos el último periodo agregado para cerrar (isOpen = 0)
-				$Q_second_last_period = mysqli_query($conn, "SELECT * FROM period ORDER BY end_date DESC LIMIT 1 OFFSET 1");
+				
+				// Obtener el periodo anterior
+				$Q_second_last_period = mysqli_query($conn, "SELECT id, name, isClosed FROM period WHERE start_date < '{$row_current_period['start_date']}' ORDER BY start_date DESC LIMIT 1");
 				$row_second_last_period = mysqli_fetch_assoc($Q_second_last_period);
-				$last_period = $row_second_last_period['name'];
+				if ($row_second_last_period) {
+					$last_period = $row_second_last_period['name'];
+					$last_period_id = $row_second_last_period['id'];
+					$last_period_still_open = $row_second_last_period['isClosed'] == 0 ? true : false;
+				}
 			}
 		}
 	
 		$obj = array(
 			'current_period' => $current_period,
 			'last_period' => $last_period,
+			'last_period_id' => $last_period_id,
 			'time_period' => $time_period,
 			'start_current_period' => $start_current_period,
 			'end_current_period' => $end_current_period,
 			'exist_period' => $exist_period,
 			'isOpen' => $isOpen,
-			'max_date' => $max_date
+			'max_date' => $max_date,
+			'last_period_still_open' => $last_period_still_open
 		);
 		echo json_encode($obj);
 	}
+	
+	
 	
 
 /*
@@ -1914,6 +1958,7 @@ if(isset($_GET['section_student_list'])){
 				'day' => $row['day'],
 				'start_hour' => $row['start_hour'],
 				'end_hour' => $row['end_hour'],
+				'classroom' => $row['classroom'],
 				'subject' => $subject_data['name'], 
 				'section' => $section_data['seccion'] ?? null
 			);
