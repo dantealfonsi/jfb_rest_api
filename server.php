@@ -1039,51 +1039,42 @@ if ($method == "POST") {
 			$classroom = mysqli_real_escape_string($conn, strtolower($data['classroom']));
 			// ...otros campos
 		
-			// Verifica si ya existe una entrada con los mismos día, aula, hora de inicio, hora de cierre y periodo
-			$checkClassroomQuery = "SELECT * FROM work_charge WHERE day=$day AND classroom='$classroom' AND start_hour='$start_hour' AND end_hour='$end_hour' AND period='$period'";
-			$checkClassroomResult = mysqli_query($conn, $checkClassroomQuery);
+			// Verifica si ya existe una entrada con los mismos día, sección, hora de inicio y hora de cierre
+			$checkQuery = "SELECT * FROM work_charge WHERE day='$day' AND section_id='$section_id' AND start_hour='$start_hour' AND end_hour='$end_hour' AND period='$period'";
+			$checkResult = mysqli_query($conn, $checkQuery);
 		
-			if (mysqli_num_rows($checkClassroomResult) > 0) {
-				// Si existe, no se puede añadir una nueva materia en el mismo horario y aula
-				$message = 'Ya existe una materia en el mismo aula y horario';
-				$icon = 'error';
-			} else {
-				// Verifica si ya existe una entrada con los mismos día, sección, hora de inicio y hora de cierre
-				$checkQuery = "SELECT * FROM work_charge WHERE day=$day AND section_id=$section_id AND start_hour='$start_hour' AND end_hour='$end_hour' AND period='$period'";
-				$checkResult = mysqli_query($conn, $checkQuery);
+			if (mysqli_num_rows($checkResult) > 0) {
+				// Si existe, actualiza la materia
+				$updateQuery = "UPDATE work_charge SET subject_id='$subject_id' WHERE day='$day' AND section_id='$section_id' AND start_hour='$start_hour' AND end_hour='$end_hour' AND period='$period'";
+				$updateResult = mysqli_query($conn, $updateQuery);
 		
-				if (mysqli_num_rows($checkResult) > 0) {
-					// Si existe, actualiza la materia
-					$updateQuery = "UPDATE work_charge SET subject_id=$subject_id WHERE day=$day AND section_id=$section_id AND start_hour='$start_hour' AND end_hour='$end_hour' AND period='$period'";
-					$updateResult = mysqli_query($conn, $updateQuery);
-		
-					if (!$updateResult) {
-						throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
-						$message = 'Error al actualizar la materia';
-						$icon = 'error';
-					} else {
-						$message = 'Materia actualizada con éxito';
-						$icon = 'success';
-					}
+				if (!$updateResult) {
+					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+					$message = 'Error al actualizar la materia';
+					$icon = 'error';
 				} else {
-					// Si no existe, inserta una nueva entrada
-					$insertQuery = "INSERT INTO work_charge (day, section_id, subject_id, start_hour, end_hour, period, classroom) VALUES ($day, $section_id, $subject_id, '$start_hour', '$end_hour', '$period', '$classroom')";
-					$insertResult = mysqli_query($conn, $insertQuery);
+					$message = 'Materia actualizada con éxito';
+					$icon = 'success';
+				}
+			} else {
+				// Si no existe, inserta una nueva entrada
+				$insertQuery = "INSERT INTO work_charge (day, section_id, subject_id, start_hour, end_hour, period, classroom) VALUES ('$day', '$section_id', '$subject_id', '$start_hour', '$end_hour', '$period', '$classroom')";
+				$insertResult = mysqli_query($conn, $insertQuery);
 		
-					if (!$insertResult) {
-						throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
-						$message = 'Error al añadir la materia';
-						$icon = 'error';
-					} else {
-						$message = 'Materia añadida con éxito';
-						$icon = 'success';
-					}
+				if (!$insertResult) {
+					throw new Exception("Error en la consulta SQL: " . mysqli_error($conn));
+					$message = 'Error al añadir la materia';
+					$icon = 'error';
+				} else {
+					$message = 'Materia añadida con éxito';
+					$icon = 'success';
 				}
 			}
 		
 			$response = array('message' => $message, 'icon' => $icon);
 			echo json_encode($response);
 		}
+		
 		
 		
 
